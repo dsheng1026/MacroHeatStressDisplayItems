@@ -1,0 +1,27 @@
+regsector,AgCOMM,AgCOMM1,AgCOMM2,AgCOMM3,AgCOMM4,AgCOMM5,AgCOMM6,AgCOMM7
+biomass,biomass,biomass,Energy crops,Energy crops,Energy crops,Other crops,Other crops,Others
+regional wheat,Wheat,Staples,Staple crops,Staple crops,Wheat,Key,Key,Others
+regional rice,Rice,Staples,Staple crops,Staple crops,Rice,Key,Key,Rice
+regional corn,Corn,Staples,Staple crops,Staple crops,Corn,Key,Key,Others
+regional othergrain,OtherGrain,Staples,Staple crops,Staple crops,Other crops,Other crops,Other crops,Others
+regional root_tuber,RootTuber,Staples,Staple crops,Staple crops,Other crops,Other crops,Other crops,Others
+regional oilcrop,OilCrop,Other Crops,Oil crops,Oil crops,Other crops,Other crops,Other crops,Others
+regional soybean,Soybean,Other Crops,Oil crops,Oil crops,Soybean,Key,Key,Others
+regional oilpalm,OilPalm,Other Crops,Oil crops,Oil crops,Other crops,Other crops,Other crops,Others
+regional legumes,Legumes,Other Crops,Other crops,Other crops,Other crops,Other crops,Other crops,Others
+regional fibercrop,FiberCrop,Other Crops,Other crops,Other crops,Other crops,Other crops,Other crops,Others
+regional sugarcrop,SugarCrop,Other Crops,Other crops,Other crops,Other crops,Other crops,Other crops,Others
+regional nuts_seeds,NutsSeeds,Other Crops,Other crops,Other crops,Other crops,Other crops,Other crops,Others
+regional fruits,Fruits,Other Crops,Other crops,Other crops,Other crops,Other crops,Vege&Fruits,Vege&Fruits
+regional vegetables,Vegetables,Other Crops,Other crops,Other crops,Other crops,Other crops,Vege&Fruits,Vege&Fruits
+regional misccrop,MiscCrop,Other Crops,Other crops,Other crops,Other crops,Other crops,Other crops,Others
+regional beef,Beef,Livestock,Livestock,Livestock,Livestock,Livestock,Livestock,Others
+regional dairy,Dairy,Livestock,Livestock,Livestock,Livestock,Livestock,Livestock,Others
+regional sheepgoat,SheepGoat,Livestock,Livestock,Livestock,Livestock,Livestock,Livestock,Others
+regional pork,Pork,Livestock,Livestock,Livestock,Livestock,Livestock,Livestock,Others
+regional poultry,Poultry,Livestock,Livestock,Livestock,Livestock,Livestock,Livestock,Others
+OtherMeat_Fish,OtherMeat_Fish,Livestock,Livestock,Livestock,Livestock,Livestock,Livestock,Others
+Pasture,Pasture,Pasture,Pasture,Pasture,Pasture,Pasture,Pasture,Others
+FodderHerb,FodderHerb,Fodder,Fodder crops,Other crops,Other crops,Other crops,Other crops,Others
+FodderGrass,FodderGrass,Fodder,Fodder crops,Other crops,Other crops,Other crops,Other crops,Others
+,Forest,Forest,Forest,Forest,Forest,Forest,Forest,Others
