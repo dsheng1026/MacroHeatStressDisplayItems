@@ -232,9 +232,25 @@ scenario_target <- "CLA_LS"
 LaborTech2015 <- read.csv("data/HeatStress/VFood/food_MRI/AgLaborTech2015.csv", skip = 1, header = T) %>% 
   select(region, subsector, technology, sector, labor = X2015) 
 
-# df.pi %>% filter(year == 2015, scenario == "Ref") %>% 
-#   select(region, technology = LandLeaf, year, crop, land, WB, IRR, mgmt) ->
-#   LandTech2015
+PluckBind("Land") %>%  # thous km2
+  select(scenario, region, LandLeaf, year, value) %>% 
+  mutate(variable = "land") %>% 
+  bind_rows(PluckBind("ProfitRate") %>% # $1975/thous km2
+              select(scenario, region, LandLeaf, year, value) %>% 
+              mutate(variable = "pi")) %>% 
+  filter(year >= 2015) %>% 
+  spread(variable, value) %>% 
+  mutate(value = land * pi) ->
+  df.pi
+
+splits <- strsplit(df.pi$LandLeaf, '_')
+splits <- lapply(splits, 'length<-', max(lengths(splits)))
+splits <- do.call(rbind, splits)
+df.pi[c('crop', 'WB', 'IRR', 'mgmt')] <- splits
+
+df.pi %>% filter(year == 2015, scenario == "Ref") %>% 
+  select(region, technology = LandLeaf, year, crop, land, WB, IRR, mgmt) ->
+  LandTech2015
 
 splits <- strsplit(LaborTech2015$technology, '_')
 splits <- lapply(splits, 'length<-', max(lengths(splits)))
@@ -283,6 +299,18 @@ HS_PC_GCAM %>% rename(sector = AgSupplySector, subsector = AgSupplySubsector,
   summarise(IO_mult = weighted.mean(IO_mult, labor, na.rm = T)) %>% 
   mutate(eta_mult = 1/IO_mult) ->
   df.eta.shock
+
+
+df.eta.shock %>% mutate(index = eta_mult) %>% 
+  group_by(year) %>% 
+  summarise(
+    ymin = quantile(index, 0.05, na.rm = TRUE),
+    lower = quantile(index, 0.25, na.rm = TRUE),
+    middle = quantile(index, 0.5, na.rm = TRUE),
+    upper = quantile(index, 0.75, na.rm = TRUE),
+    ymax = quantile(index, 0.95, na.rm = TRUE)) ->
+  box.eta.WB
+
 
 WB %>% 
   left_join(basin_to_country_mapping %>% select(glu_id = GCAM_basin_ID, WB = GLU_name)) %>% 
@@ -393,6 +421,64 @@ AgYld_ref %>%
   summarise(index = weighted.mean(index, value, na.rm = T)) ->
   df.yld.shock
 
+
+AgYld_ref %>% 
+  arrange(region, AgSupplySector, AgSupplySubsector, AgProductionTechnology, year) %>% 
+  mutate(inter_mult = (1+AgProdChange)^5) %>% 
+  group_by(region, AgSupplySector, AgSupplySubsector, AgProductionTechnology) %>% 
+  mutate(yld= cumprod(inter_mult)) %>% 
+  mutate(scenario = "Ref") %>% 
+  bind_rows(read.csv("C:/Model/gaia/agyield_impact_mri-esm2-0_r1i1p1f1_w5e5_Food-MRI.csv") %>% 
+              select(-X) %>% 
+              arrange(region, AgSupplySector, AgSupplySubsector, AgProductionTechnology, year) %>% 
+              mutate(inter_mult = (1+AgProdChange)^5) %>% 
+              group_by(region, AgSupplySector, AgSupplySubsector, AgProductionTechnology) %>% 
+              mutate(yld = cumprod(inter_mult),
+                     scenario = "gaia")) %>% 
+  select(-AgProdChange, -inter_mult) %>% 
+  spread(scenario, yld) %>% 
+  mutate(index = gaia / Ref) %>% 
+  left_join(LandTech2015 %>% rename(AgProductionTechnology = LandLeaf)) %>% 
+  filter(!is.na(value)) %>% 
+  group_by(year) %>% 
+  summarise(index = weighted.mean(index, value, na.rm = T)) ->
+  df.yld.shock.glb.layer
+
+
+
+df.yld.shock %>% 
+  group_by(year) %>% 
+  summarise(
+    ymin = quantile(index, 0.05, na.rm = TRUE),
+    lower = quantile(index, 0.25, na.rm = TRUE),
+    middle = quantile(index, 0.5, na.rm = TRUE),
+    upper = quantile(index, 0.75, na.rm = TRUE),
+    ymax = quantile(index, 0.95, na.rm = TRUE)) %>%
+  mutate(input = "Crop") %>%
+  bind_rows(box.eta.WB %>% mutate(input = "Labor")) %>% 
+  ggplot(aes(x = factor(year))) +  # <-- x is required!
+  geom_boxplot(
+    aes(ymin = ymin, lower = lower, middle = middle, upper = upper, ymax = ymax),
+    stat = "identity") +
+  geom_errorbar(data =df.yld.shock.glb.layer, aes(x = factor(year), ymin = index, ymax = index), 
+                linewidth = 0.8, color = "blue", linetype = "dotted") +
+  facet_wrap(~ input) +
+  labs(x = "Year", y = "Index", title = "Productivity relative to Ref (Ref = 1) with heat stress\nboxplot across 230 waterbasins") +
+  theme_bw() + theme1 +themeds ->
+FigS2.bio.shock.WB; FigS2.bio.shock.WB
+
+Write_png(FigS2.bio.shock.WB, "FigS2.bio.shock.WB", DIR_MODULE, w = 10, h = 8, r = 300)
+
+
+# WB %>% 
+#   left_join(basin_to_country_mapping %>% select(glu_id = GCAM_basin_ID, WB = GLU_name)) %>% 
+#   left_join(df.yld.shock %>% filter(year == 2100)) %>% mutate(index = 100*index - 100) %>% 
+#   mutate(year = 2100) %>% 
+#   bind_rows(WB %>%
+#               left_join(basin_to_country_mapping %>% select(glu_id = GCAM_basin_ID, WB = GLU_name)) %>%
+#               left_join(df.yld.shock %>% filter(year == 2050)) %>% mutate(index = 100*index - 100) %>% 
+#               mutate(year = 2050)) ->
+#   df.plot.crop
 
 WB %>% 
   left_join(basin_to_country_mapping %>% select(glu_id = GCAM_basin_ID, WB = GLU_name)) %>% 
@@ -1041,21 +1127,21 @@ gdp.32.plot %>%
   
   #### Return to land ----
   
-  PluckBind("Land") %>%  # thous km2
-    select(scenario, region, LandLeaf, year, value) %>% 
-    mutate(variable = "land") %>% 
-    bind_rows(PluckBind("ProfitRate") %>% # $1975/thous km2
-                select(scenario, region, LandLeaf, year, value) %>% 
-                mutate(variable = "pi")) %>% 
-    filter(year >= 2015) %>% 
-    spread(variable, value) %>% 
-    mutate(value = land * pi) ->
-    df.pi
+  # PluckBind("Land") %>%  # thous km2
+  #   select(scenario, region, LandLeaf, year, value) %>% 
+  #   mutate(variable = "land") %>% 
+  #   bind_rows(PluckBind("ProfitRate") %>% # $1975/thous km2
+  #               select(scenario, region, LandLeaf, year, value) %>% 
+  #               mutate(variable = "pi")) %>% 
+  #   filter(year >= 2015) %>% 
+  #   spread(variable, value) %>% 
+  #   mutate(value = land * pi) ->
+  #   df.pi
   
-  splits <- strsplit(df.pi$LandLeaf, '_')
-  splits <- lapply(splits, 'length<-', max(lengths(splits)))
-  splits <- do.call(rbind, splits)
-  df.pi[c('crop', 'WB', 'IRR', 'mgmt')] <- splits
+  # splits <- strsplit(df.pi$LandLeaf, '_')
+  # splits <- lapply(splits, 'length<-', max(lengths(splits)))
+  # splits <- do.call(rbind, splits)
+  # df.pi[c('crop', 'WB', 'IRR', 'mgmt')] <- splits
   
   unique(df.pi$crop)
   
@@ -2416,7 +2502,8 @@ plot.trade.10 %>%
   mutate(region = factor(region, levels = rev(reg_order)),
          var = gsub("NX_value", "Net export value", var),
          var = gsub("EX_value", "Export value", var),
-         var = gsub("IM_value", "Import value", var)) %>%
+         var = gsub("IM_value", "Import value", var),
+         group = factor(group, levels = c("Key crops", "Other crops", "Livestock"))) %>%
   filter(year == 2100) %>% 
   filter(grepl("value", var)) ->
   plot.trade.10.value
