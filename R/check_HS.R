@@ -244,6 +244,36 @@ head(LaborTech2015)
 
 HS_PC_GCAM <- readRDS("C:/Model/KLEAM/HELPS_GCAM_mapping_Dunne_Food_MRI.rds")
 
+# global 
+
+HS_PC_GCAM %>% rename(sector = AgSupplySector, subsector = AgSupplySubsector,
+                      technology = AgProductionTechnology) %>% 
+  left_join(LaborTech2015 %>% group_by(subsector, technology, sector, WB, IRR, mgmt) %>% 
+              summarise(labor = sum(labor, na.rm = T))) %>% 
+  filter(!is.na(labor)) %>% 
+  group_by(year) %>% 
+  summarise(IO_mult = weighted.mean(IO_mult, labor, na.rm = T)) %>% 
+  mutate(eta_mult = 1/IO_mult) ->
+  df.eta.shock.glb
+
+  
+  HS_PC_GCAM %>% rename(sector = AgSupplySector, subsector = AgSupplySubsector,
+                        technology = AgProductionTechnology) %>% 
+    left_join(LaborTech2015 %>% group_by(subsector, technology, sector, WB, IRR, mgmt) %>% 
+                summarise(labor = sum(labor, na.rm = T))) %>% 
+    filter(!is.na(labor)) %>% 
+    group_by(year) %>% 
+    left_join(LandTech2015 %>% select(region, WB) %>% unique(),
+              by = "WB",
+              relationship = "many-to-many") %>% 
+    group_by(region, year) %>% 
+    summarise(IO_mult = weighted.mean(IO_mult, labor, na.rm = T)) %>% 
+    mutate(eta_mult = 1/IO_mult,
+           loss = 1 - eta_mult) ->
+    df.eta.shock.reg32
+
+# water basin 
+
 HS_PC_GCAM %>% rename(sector = AgSupplySector, subsector = AgSupplySubsector,
                       technology = AgProductionTechnology) %>% 
   left_join(LaborTech2015 %>% group_by(subsector, technology, sector, WB, IRR, mgmt) %>% 
@@ -305,6 +335,43 @@ LandTech2015[c('crop', 'WB', 'IRR', 'mgmt')] <- splits
 # reference AgYld
 AgYld_ref <- readRDS("C:/Model/heat_paper/Result/paper_MacroHS/data/HeatStress/AgYld_ref.rds")
 
+
+# global 
+
+AgYld_ref %>% 
+  arrange(region, AgSupplySector, AgSupplySubsector, AgProductionTechnology, year) %>% 
+  mutate(inter_mult = (1+AgProdChange)^5) %>% 
+  group_by(region, AgSupplySector, AgSupplySubsector, AgProductionTechnology) %>% 
+  mutate(yld= cumprod(inter_mult)) %>% 
+  mutate(scenario = "Ref") %>% 
+  bind_rows(read.csv("C:/Model/gaia/agyield_impact_mri-esm2-0_r1i1p1f1_w5e5_Food-MRI.csv") %>% 
+              select(-X) %>% 
+              arrange(region, AgSupplySector, AgSupplySubsector, AgProductionTechnology, year) %>% 
+              mutate(inter_mult = (1+AgProdChange)^5) %>% 
+              group_by(region, AgSupplySector, AgSupplySubsector, AgProductionTechnology) %>% 
+              mutate(yld = cumprod(inter_mult),
+                     scenario = "gaia")) %>% 
+  select(-AgProdChange, -inter_mult) %>% 
+  spread(scenario, yld) %>% 
+  mutate(index = gaia / Ref) %>% 
+  left_join(LandTech2015 %>% rename(AgProductionTechnology = LandLeaf)) %>% 
+  ungroup() %>% 
+  group_by(year) -> check
+
+check %>% 
+  filter(!is.na(value)) %>% 
+  group_by(year) %>% 
+  summarise(index = weighted.mean(index, value, na.rm = T)) ->
+  df.yld.shock.glb
+
+
+check %>% 
+  filter(!is.na(value)) %>% 
+  group_by(region, year) %>% 
+  summarise(index = weighted.mean(index, value, na.rm = T)) ->
+  df.yld.shock.reg32
+
+# water basin 
 AgYld_ref %>% 
   arrange(region, AgSupplySector, AgSupplySubsector, AgProductionTechnology, year) %>% 
   mutate(inter_mult = (1+AgProdChange)^5) %>% 
@@ -337,8 +404,6 @@ WB %>%
               mutate(year = 2050)) ->
   df.plot.crop
 
-max(df.plot.crop$index)
-
 df.plot.crop %>% mutate(shock = "Crop") %>% 
   bind_rows(df.plot.labor %>% select(names(df.plot.crop)) %>% 
               mutate(shock = "Labor")) ->
@@ -347,20 +412,63 @@ df.plot.crop %>% mutate(shock = "Crop") %>%
 max5 <- ceiling(max(df.bio$index, na.rm = TRUE) / 5) * 5; max5
 min5 <- floor(min(df.bio$index, na.rm = TRUE) / 5) * 5; min5
 
-df.bio %>% 
-  mutate(bin = cut(
-    index,
-    breaks = seq(min5, max5, by = 5),
-    include.lowest = TRUE,
-    right = FALSE
-  )) ->
+custom_breaks <- sort(unique(c(seq(min5, max5, by = 5), -0.1, 0.1))); custom_breaks
+
+original_levels <- levels(cut(df.bio$index, breaks = custom_breaks, include.lowest = TRUE, right = FALSE))
+original_levels
+updated_levels <- c("[-35,-30)", "[-30,-25)", "[-25,-20)", "[-20,-15)", "[-15,-10)", 
+                    "[-10,-5)", "[-5,0)", "0",  "(0,5]" , "(5,10]",    "(10,15]" )
+
+# get the number of positive and negative bins
+neg_num <- 7
+pos_num <- 3
+
+df.bio %>%
+  mutate(bin = "0",
+         bin = ifelse(index >= -35 & index < -30, "[-35,-30)", bin),
+         bin = ifelse(index >= -30 & index < -25, "[-30,-25)", bin),
+         bin = ifelse(index >= -25 & index < -20, "[-25,-20)", bin),
+         bin = ifelse(index >= -20 & index < -15, "[-20,-15)", bin),
+         bin = ifelse(index >= -15 & index < -10, "[-15,-10)", bin),
+         bin = ifelse(index >= -10 & index < -5, "[-10,-5)", bin),
+         bin = ifelse(index >= -5 & index < -0.1, "[-5,0)", bin),
+         bin = ifelse(index >= -0.1 & index <= 0.1, "0", bin),
+         bin = ifelse(index > 0.1 & index <= 5, "(0,5]", bin),
+         bin = ifelse(index > 5 & index <= 10, "(5,10]", bin),
+         bin = ifelse(index > 10 & index <= 15, "(10,15]", bin),
+         bin = factor(bin, levels = updated_levels)) ->
   df.bio.bin
 
-bin_levels <- levels(df.bio.bin$bin)
+
+# df.bio %>%
+#   mutate(bin = cut(
+#     index,
+#     breaks = custom_breaks,
+#     include.lowest = TRUE,
+#     right = FALSE
+#   ),
+#   bin = ifelse(index >= -0.1 & index < 0.1, "0", as.character(bin)),
+#   bin = factor(bin, levels = c())) ->
+#   df.bio.bin
+
+
+# df.bio %>% 
+#   mutate(bin = cut(
+#     index,
+#     breaks = seq(min5, max5, by = 5),
+#     include.lowest = TRUE,
+#     right = FALSE
+#   )) ->
+#   df.bio.bin
+
+# gurantee symmetric color palette
 colors <- c(
-  colorRampPalette(c("darkred", "#FFE4E1"))(length(bin_levels[bin_levels < "[0,5)"])) ,
-  colorRampPalette(c("#E6F0FA", "#95B5D8"))(length(bin_levels[bin_levels >= "[0,5)"]))
+  colorRampPalette(c("darkred", "#FFE4E1"))(max(pos_num, neg_num)) ,
+  "white", # for 0
+  colorRampPalette(c("#E6F0FA", "darkblue"))(max(pos_num, neg_num))
 )
+# select necessary colors
+colors <- colors[1:length(updated_levels)]; colors
 
 
 # red_shades <- c("#D89895", "#EBBEBB", "#FFE4E1")
@@ -524,21 +632,38 @@ REG %>% rename(region = reg_nm) %>%
 max1 <- ceiling(max(gdp.32.plot$index)); max1
 min1 <- floor(min(gdp.32.plot$index)); min1
 
+custom_breaks <- sort(unique(c(seq(min1, max1, by = 1), -0.1, 0.1))); custom_breaks
 
-gdp.32.plot %>% 
-  mutate(bin = cut(
-    index,
-    breaks = seq(min1, max1, by = 1),
-    include.lowest = TRUE,
-    right = FALSE
-  )) ->
+original_levels <- levels(cut(df.bio$index, breaks = custom_breaks, include.lowest = TRUE, right = FALSE))
+original_levels
+updated_levels <- c("[-4,-3)", "[-3,-2)", "[-2,-1)", "[-1,0)", 
+                    "0", "(0,1]", "(1,2]",  "(2,3]" )
+
+# get the number of positive and negative bins
+neg_num <- 4
+pos_num <- 3
+
+gdp.32.plot %>%
+  mutate(bin = "0",
+         bin = ifelse(index >= -4 & index < -3, "[-4,-3)", bin),
+         bin = ifelse(index >= -3 & index < -2, "[-3,-2)", bin),
+         bin = ifelse(index >= -2 & index < -1, "[-2,-1)", bin),
+         bin = ifelse(index >= -1 & index < -0.1, "[-1,0)", bin),
+         bin = ifelse(index >= -0.1 & index <= 0.1, "0", bin),
+         bin = ifelse(index > 0.1 & index <= 1, "(0,1]", bin),
+         bin = ifelse(index > 1 & index <= 2, "(1,2]", bin),
+         bin = ifelse(index > 2 & index <= 3, "(2,3]", bin),
+         bin = factor(bin, levels = updated_levels)) ->
   gdp.32.plot
 
 bin_levels <- levels(gdp.32.plot$bin); bin_levels
 colors <- c(
-  colorRampPalette(c("darkred", "#FFE4E1"))(length(bin_levels[bin_levels < "[0,1)"])) ,
-  colorRampPalette(c("#E6F0FA", "#95B5D8"))(length(bin_levels[bin_levels >= "[0,1)"]))
+  colorRampPalette(c("darkred", "#FFE4E1"))(max(pos_num, neg_num)) ,
+  "white", # for 0
+  colorRampPalette(c("#E6F0FA", "darkblue"))(max(pos_num, neg_num))
 )
+
+colors <- colors[1:length(bin_levels)]; colors
 
 gdp.32.plot %>% 
   ggplot() +
