@@ -19,11 +19,11 @@ output.dir <- "../../"
 eta_list <- list.files(input.dir, pattern = "ANNUAL_WB", full.names = FALSE); eta_list
 
 
-  THI <- readRDS(paste0(input.dir, eta_list))
-  df.thi <- do.call(rbind, THI)
-  basin_to_country_mapping %>% full_join(df.thi %>% rename(GCAM_basin_ID = region_id),
-                                         by = "GCAM_basin_ID") -> df.thi.WB
-  print(dim(df.thi.WB))
+THI <- readRDS(paste0(input.dir, eta_list))
+df.thi <- do.call(rbind, THI)
+basin_to_country_mapping %>% full_join(df.thi %>% rename(GCAM_basin_ID = region_id),
+                                       by = "GCAM_basin_ID") -> df.thi.WB
+print(dim(df.thi.WB))
 
 
 # eta.all <-
@@ -116,16 +116,31 @@ get_data_list(all_data, MODULE_INPUTS, strip_attributes = TRUE)
 
 
 # only apply the heat stress to dairy and beef for future periods
+# L202.StubTechCoef_an %>%
+#   filter(year %in% MODEL_FUTURE_YEARS) %>%
+#   filter(supplysector %in% c("Beef" , "Dairy")) %>%
+#   left_join_error_no_match(HS_PC_GCAM_animal %>% rename(market.name = region),
+#                            by = c("market.name", "year")) %>%
+#   mutate(coefficient = coefficient / animal_mult) %>%
+#   select(names(L202.StubTechCoef_an)) %>%
+#   bind_rows(L202.StubTechCoef_an %>%
+#               filter(year %in% MODEL_FUTURE_YEARS) %>%
+#               filter(supplysector %in% c("Beef" , "Dairy"))) %>%
+#   bind_rows(L202.StubTechCoef_an %>% filter(year %in% MODEL_BASE_YEARS)) ->
+#   L202.StubTechCoef_an
+
 L202.StubTechCoef_an %>%
   filter(year %in% MODEL_FUTURE_YEARS) %>%
-  filter(supplysector %in% c("Beef" , "Dairy")) %>%
   left_join_error_no_match(HS_PC_GCAM_animal %>% rename(market.name = region),
                            by = c("market.name", "year")) %>%
-  mutate(coefficient = coefficient / animal_mult) %>%
+  mutate(animal_mult = ifelse(supplysector %in% c("Pork", "Poultry"),
+                              animal_mult * 0.5, animal_mult), # poultry and swine are sensitive to heat stress, but they are mostly indoor
+         animal_mult = ifelse(supplysector %in% c("SheepGoat"),
+                              animal_mult * 0.7, animal_mult), # sheepgoat is more resist to heat stress
+         animal_mult = ifelse(supplysector %in% c("sawnwood_processing", "woodpulp_processing", "woodpulp_energy"),
+                              1, animal_mult), # don't adjust wood sector
+         coefficient = coefficient / animal_mult) %>%
   select(names(L202.StubTechCoef_an)) %>%
-  bind_rows(L202.StubTechCoef_an %>%
-              filter(year %in% MODEL_FUTURE_YEARS) %>%
-              filter(!supplysector %in% c("Beef" , "Dairy"))) %>%
   bind_rows(L202.StubTechCoef_an %>% filter(year %in% MODEL_BASE_YEARS)) ->
   L202.StubTechCoef_an
 
