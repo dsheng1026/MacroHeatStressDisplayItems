@@ -25,7 +25,6 @@ basin_to_country_mapping %>% full_join(df.thi %>% rename(GCAM_basin_ID = region_
                                        by = "GCAM_basin_ID") -> df.thi.WB
 print(dim(df.thi.WB))
 
-
 # eta.all <-
 df.thi.WB %>%
   filter(!is.na(GCAM_basin_ID)) %>%
@@ -114,7 +113,6 @@ MODULE_INPUTS <-
 
 get_data_list(all_data, MODULE_INPUTS, strip_attributes = TRUE)
 
-
 # only apply the heat stress to dairy and beef for future periods
 # L202.StubTechCoef_an %>%
 #   filter(year %in% MODEL_FUTURE_YEARS) %>%
@@ -127,22 +125,54 @@ get_data_list(all_data, MODULE_INPUTS, strip_attributes = TRUE)
 #               filter(year %in% MODEL_FUTURE_YEARS) %>%
 #               filter(supplysector %in% c("Beef" , "Dairy"))) %>%
 #   bind_rows(L202.StubTechCoef_an %>% filter(year %in% MODEL_BASE_YEARS)) ->
-#   L202.StubTechCoef_an
+#   L202.StubTechCoef_an_HS
 
-L202.StubTechCoef_an %>%
+L202.StubTechCoef_an %>% 
   filter(year %in% MODEL_FUTURE_YEARS) %>%
   left_join_error_no_match(HS_PC_GCAM_animal %>% rename(market.name = region),
                            by = c("market.name", "year")) %>%
-  mutate(animal_mult = ifelse(supplysector %in% c("Pork", "Poultry"),
-                              animal_mult * 0.5, animal_mult), # poultry and swine are sensitive to heat stress, but they are mostly indoor
-         animal_mult = ifelse(supplysector %in% c("SheepGoat"),
-                              animal_mult * 0.7, animal_mult), # sheepgoat is more resist to heat stress
-         animal_mult = ifelse(supplysector %in% c("sawnwood_processing", "woodpulp_processing", "woodpulp_energy"),
-                              1, animal_mult), # don't adjust wood sector
-         coefficient = coefficient / animal_mult) %>%
+  filter(supplysector %in% c("Pork", "Poultry", "SheepGoat", "Beef", "Dairy")) %>% 
+  # poultry and swine are sensitive to heat stress, but they are mostly indoor
+  mutate(delta = 1 - animal_mult,
+         delta = ifelse(supplysector %in% c("Pork", "Poultry"),
+                        delta * 0.5, delta), 
+         # sheepgoat is more resist to heat stress
+         delta = ifelse(supplysector %in% c("SheepGoat"),
+                        delta * 0.7, delta), 
+         delta = ifelse(subsector == "Mixed", 0.5 * delta, delta),
+         prod_mult = 1 - delta,
+         coefficient = coefficient / prod_mult) %>% 
+  group_by(year, supplysector, subsector) %>% 
+  summarise(y05 = quantile(prod_mult , 0.05),
+            y25 = quantile(prod_mult , 0.25),
+            y50 = quantile(prod_mult , 0.50),
+            y75 = quantile(prod_mult , 0.75),
+            y95 = quantile(prod_mult , 0.95),
+            mean = mean(prod_mult)) ->
+  live.prod.shock.box
+
+saveRDS(live.prod.shock.box, file ="C:/Model/KLEAM/live.prod.shock.box.rds")
+
+L202.StubTechCoef_an %>% 
+  filter(year %in% MODEL_FUTURE_YEARS) %>%
+  left_join_error_no_match(HS_PC_GCAM_animal %>% rename(market.name = region),
+                           by = c("market.name", "year")) %>%
+  filter(supplysector %in% c("Pork", "Poultry", "SheepGoat", "Beef", "Dairy")) %>% 
+  # poultry and swine are sensitive to heat stress, but they are mostly indoor
+  mutate(delta = 1 - animal_mult,
+         delta = ifelse(supplysector %in% c("Pork", "Poultry"),
+                        delta * 0.5, delta), 
+         # sheepgoat is more resist to heat stress
+         delta = ifelse(supplysector %in% c("SheepGoat"),
+                        delta * 0.7, delta), 
+         delta = ifelse(subsector == "Mixed", 0.5 * delta, delta),
+         prod_mult = 1 - delta,
+         coefficient = coefficient / prod_mult) %>% 
   select(names(L202.StubTechCoef_an)) %>%
-  bind_rows(L202.StubTechCoef_an %>% filter(year %in% MODEL_BASE_YEARS)) ->
-  L202.StubTechCoef_an
+  bind_rows(L202.StubTechCoef_an %>% filter(year %in% MODEL_BASE_YEARS)) %>% 
+  bind_rows(L202.StubTechCoef_an %>% filter(year %in% MODEL_FUTURE_YEARS) %>% 
+              filter(supplysector %in% c("sawnwood_processing", "woodpulp_processing", "woodpulp_energy"))) ->
+  L202.StubTechCoef_an_HS
 
 
 create_xml("an_input_eta_HS_MRI.xml") %>%
@@ -170,7 +200,7 @@ create_xml("an_input_eta_HS_MRI.xml") %>%
   add_xml_data(L202.GlobalTechShrwt_an, "GlobalTechShrwt") %>%
   add_xml_data(L202.StubTechInterp_an, "StubTechInterp") %>%
   add_xml_data(L202.StubTechProd_an, "StubTechProd") %>%
-  add_xml_data(L202.StubTechCoef_an, "StubTechCoef") %>%
+  add_xml_data(L202.StubTechCoef_an_HS, "StubTechCoef") %>%
   add_xml_data(L2082.StubTechCoef_laborcapital_an_tfp_MA, "StubTechCoef") %>%
   add_xml_data(L2082.StubTechCoef_laborcapital_an_tfp_MA, "StubPriceConversion") %>%
   add_xml_data(L2082.StubTechCost_an_adj, "StubTechCost") %>%
