@@ -182,6 +182,10 @@ gather_time <- function(.data){
 
 basin_to_country_mapping <- read.csv("data/maps/basin_to_country_mapping.csv", skip = 7, header = T)
 
+gcam_macro_TFP_open_core <- read.csv("C:/Model/KLEAM/input/gcamdata/inst/extdata/socioeconomics/gcam_macro_TFP_open_core.csv", 
+                                     skip = 6, header = T)
+
+
 reg_KLEAM_HS10 <- c("North America", "Europe", "Reforming Economies", "Pacific OECD", "Middle East", 
                      "China+", "South Asia", "Southeast Asia", "Africa", "Latin America")
 
@@ -200,13 +204,23 @@ PluckBind <- function(.query ){
 
 SCE_NAME <- function(.data){
   .data %>% 
-    mutate(scenario = gsub("CA_LS", "Crop", scenario),
-           scenario = gsub("CA_OS", "Crop: OS", scenario),
-           scenario = gsub("CLA_LS", "Combined", scenario),
-           scenario = gsub("CLA_OS", "Combined: OS", scenario),
-           scenario = gsub("LA", "Labor", scenario)) %>% 
+    mutate(scenario = gsub("C_LS", "Crop", scenario),
+           scenario = gsub("C_OS", "Crop: OS", scenario),
+           scenario = gsub("CL_LS", "Combined", scenario),
+           scenario = gsub("CL_OS", "Combined: OS", scenario),
+           scenario = gsub("L", "Labor", scenario)) %>% 
     return()
 }
+
+# SCE_NAME <- function(.data){
+#   .data %>% 
+#     mutate(scenario = gsub("CA_LS", "Crop", scenario),
+#            scenario = gsub("CA_OS", "Crop: OS", scenario),
+#            scenario = gsub("CLA_LS", "Combined", scenario),
+#            scenario = gsub("CLA_OS", "Combined: OS", scenario),
+#            scenario = gsub("LA", "Labor", scenario)) %>% 
+#     return()
+# }
 
 REG <- st_read("data/maps/region_boundaries_moirai_combined_3p1_0p5arcmin.shp") 
 WB <- st_read("data/maps/reg_glu_boundaries_moirai_landcells_3p1_0p5arcmin.shp") 
@@ -214,8 +228,10 @@ WB <- st_read("data/maps/reg_glu_boundaries_moirai_landcells_3p1_0p5arcmin.shp")
 
 # PLOT ----
 
-# scenario_target <- "CLA"
-scenario_target <- "CLA_LS"
+# scenario_target <- "food_an"
+# scenario_target <- "CLA_LS"
+scenario_target <- "CL_LS"
+
 
 # schematic ----
 ## Figure 1 ----
@@ -227,6 +243,47 @@ scenario_target <- "CLA_LS"
 ## Figure 2 ----
 
 ### biophysical changes ----
+
+#### livestock shocks ----
+
+# readRDS("C:/Model/KLEAM/Animal_HS_MRI.rds") %>% 
+#   rename(reg_nm = region) %>% 
+#   filter(year == 2100) %>% 
+#   mutate(index = 100*animal_mult-100) %>% 
+#   mutate(bin = "0",
+#          bin = ifelse(index >= -10 & index < -5, "[-10,-5)", bin),
+#          bin = ifelse(index >= -5 & index < -0.1, "[-5,0)", bin),
+#          bin = ifelse(index >= -0.1 & index <= 0.1, "0", bin),
+#          bin = ifelse(index > 0.1 & index <= 5, "(0,5]", bin),
+#          bin = ifelse(index > 5 & index <= 10, "(5,10]", bin),
+#          bin = ifelse(index > 10 & index <= 15, "(10,15]", bin),
+#          bin = ifelse(index > 15 & index <= 20, "(15,20]", bin),
+#          bin = ifelse(index > 20 & index <= 25, "(20,25]", bin),
+#          bin = factor(bin, levels = c("[-10,-5)", "[-5,0)", "0",  "(0,5]" , 
+#                                       "(5,10]", "(10,15]", "(15,20]", "(20,25]" ))) ->
+#   df.animal.bin
+# 
+# colors <- c(
+#   colorRampPalette(c("darkred", "#FFE4E1"))(max(5, 2)) ,
+#   "white", # for 0
+#   colorRampPalette(c("#E6F0FA", "darkblue"))(max(5, 2))
+# )
+# # select necessary colors
+# colors <- colors[4:11]
+# 
+# REG %>% 
+#   left_join(df.animal.bin) %>% 
+#   ggplot() +
+#   geom_sf(aes(fill = bin)) +
+#   # scale_fill_brewer(palette = "RdBu")
+#   scale_fill_manual(values = colors, drop = T) +
+#   coord_sf(datum = NA) +
+#   labs(fill = "%") +
+#   # labs(fill = "%", title = "% biophysical shock in labor and crop") +
+#   theme_bw() + theme0 + theme1 ->
+#   FigS2.animal.shock.2100
+# 
+# Write_png(FigS2.animal.shock.2100, "FigS2.animal.shock.2100", DIR_MODULE, w = 8, h = 3.5, r = 300)
 
 #### labor shocks ----
 LaborTech2015 <- read.csv("data/HeatStress/VFood/food_MRI/AgLaborTech2015.csv", skip = 1, header = T) %>% 
@@ -775,7 +832,7 @@ gdp.32.plot %>%
     filter(year %in% c(2050, 2100)) %>% 
     group_by(region, year) %>% 
     mutate(index = 100*(value / value[scenario == "Ref"] -1)) %>% 
-    filter(scenario %in% c("CA_LS", "LA", "CLA_LS")) %>% 
+    filter(scenario %in% c("C_LS", "L", "CL_LS")) %>% 
     SCE_NAME() -> 
     df.GDP.channel.r10
   
@@ -786,7 +843,7 @@ gdp.32.plot %>%
     group_by(year) %>% 
     mutate(index = 100*(value / value[scenario == "Ref"] -1),
            region = "World") %>% 
-    filter(scenario %in% c("CA_LS", "LA", "CLA_LS")) %>% 
+    filter(scenario %in% c("C_LS", "L", "CL_LS")) %>% 
     SCE_NAME() -> 
     df.GDP.channel.glb
     
@@ -886,6 +943,30 @@ gdp.32.plot %>%
   
   Write_png(Fig3.AgLShare.32map, "Fig3.AgLShare.32map", DIR_MODULE, w = 6, h = 2, r = 300)
   
+  
+  
+  ##### global trend ----
+  
+  df.eta.shock.reg32 %>% head
+  
+  df.labor %>% filter(sector == "Labor_Ag") %>% filter(scenario == "Ref") %>% 
+    select(scenario, region, year, value) %>% 
+    filter(year >= 2020) %>% 
+    left_join(gcam_macro_TFP_open_core %>% filter(scenario == "gSSP2", year >= 2020) %>% 
+                select(-scenario, -gcam.version)) %>% 
+    mutate(service = value * productivity) %>% 
+    select(scenario, region, year, service) %>% 
+    bind_rows(df.labor %>% filter(sector == "Labor_Ag") %>% filter(scenario != "Ref") %>% 
+                select(scenario, region, year, value) %>% 
+                filter(year >= 2020) %>% 
+                left_join(gcam_macro_TFP_open_core %>% filter(scenario == "gSSP2", year >= 2020) %>% 
+                            select(-scenario, -gcam.version)) %>% 
+                left_join(df.eta.shock.reg32 %>% select(region, year, eta_mult),
+                          by = c("region", "year")) %>% 
+                mutate(service = value * productivity * eta_mult) %>% 
+                select(scenario, region, year, service)) -> 
+    df.effective.labor
+  
   df.labor %>% 
     left_join_error_no_match(Regmapping %>% select(region, REG10_main)) %>% 
     group_by(scenario, year, sector, region =REG10_main) %>% 
@@ -906,13 +987,37 @@ gdp.32.plot %>%
     filter(year >= 2020) %>% 
     filter(scenario %in% c(scenario_target, "Ref") ) %>% 
     SCE_NAME() %>% 
+    mutate(unit = "Agricultural labor share\n(%)") %>% 
+    select(scenario, region, year, value = share, unit) %>% 
+    bind_rows(df.labor.glb %>% 
+                group_by(scenario, year, region) %>% 
+                filter(sector == "Labor_Ag") %>% 
+                filter(year >= 2020) %>% 
+                filter(scenario %in% c(scenario_target, "Ref") ) %>% 
+                SCE_NAME() %>% 
+                mutate(unit = "Physical labor\n(million people)") %>% 
+                select(scenario, region, year, value, unit)) %>% 
+    bind_rows(df.effective.labor %>% 
+               group_by(scenario, year) %>% 
+               summarise(value = sum(service)) %>% 
+               group_by(year) %>% 
+               # mutate(delta = service - service[scenario == "Ref"]) %>% 
+               filter(scenario %in% c("Ref", scenario_target)) %>% 
+               SCE_NAME() %>% 
+               mutate(region = "World",
+                      unit = "Effective labor\n(million 2015 labor equivalent)")) %>% 
+    mutate(unit = factor(unit, levels = c("Physical labor\n(million people)", 
+                                          "Agricultural labor share\n(%)",
+                                          "Effective labor\n(million 2015 labor equivalent)"))) %>% 
     ggplot() +
-    geom_line(aes(x = year, y = share, color = scenario), linewidth = 0.8) +
-    labs(x = "", y = "%") +
-    theme_bw() + themeds ->
-  Fig3.glb.AgLShare; Fig3.glb.AgLShare
+    geom_line(aes(x = year, y = value, color = scenario), linewidth = 0.8) +
+    facet_grid(unit~region, scales = "free_y") +
+    labs(x = "", y = "") +
+    theme_bw() + themeds + 
+    theme(legend.position = c(0.7, 0.1)) ->
+  Fig3.glb.labor.trend; Fig3.glb.labor.trend
   
-  Write_png(Fig3.glb.AgLShare, "Fig3.glb.AgLShare", DIR_MODULE, w = 6, h = 4, r = 300)
+  Write_png(Fig3.glb.labor.trend, "Fig3.glb.labor.trend", DIR_MODULE, w = 4.5, h = 9, r = 300)
   
   
   df.labor.glb %>% 
@@ -929,6 +1034,24 @@ gdp.32.plot %>%
     Fig3.glb.AgL; Fig3.glb.AgL
   
   Write_png(Fig3.glb.AgL, "Fig3.glb.AgL", DIR_MODULE, w = 6, h = 4, r = 300)
+  
+  
+  df.effective.labor %>% 
+    group_by(scenario, year) %>% 
+    summarise(value = sum(service)) %>% 
+    group_by(year) %>% 
+    # mutate(delta = service - service[scenario == "Ref"]) %>% 
+    filter(scenario %in% c("Ref", scenario_target)) %>% 
+    SCE_NAME() %>% 
+    ggplot() +
+    geom_line(aes(x = year, y = value, color = scenario), linewidth = 0.8) +
+    labs(x = "", y = "effective labor (million 2015 labor equivalent)") +
+    # labs(title = "Agricultural labor") +
+    theme_bw() + themeds ->
+    Fig3.glb.AgLService; Fig3.glb.AgLService
+  
+  Write_png(Fig3.glb.AgLService, "Fig3.glb.AgLService", DIR_MODULE, w = 6, h = 4, r = 300)
+  
   
   df.labor.10 %>% 
     bind_rows(df.labor.glb) %>% 
@@ -1032,49 +1155,6 @@ gdp.32.plot %>%
   
   Write_png(Fig3.S1.AgLShare.delta, "Fig3.S1.AgLShare.delta", DIR_MODULE, w = 10, h = 6, r = 300)
   
-  # plot.wage.10 %>% 
-  #   filter(variable == "wage") %>% 
-  #   group_by(scenario, year, region, variable) %>% 
-  #   mutate(ratio = value / value[sector == "Labor_Materials"]) %>% 
-  #   filter( sector == "Labor_Ag") %>% 
-  #   SCE_NAME() %>% 
-  #   mutate(region = factor(region, levels = reg_order)) %>%
-  #   ggplot() +
-  #   # geom_hline(yintercept = 1, linetype = "dotted") +
-  #   geom_line(aes(x = year, y = ratio, color = scenario),
-  #             linewidth = 0.8) +
-  #   facet_wrap(~ region, ncol = 5, scales = "free_y") +
-  #   labs(x = "", y = "index", title = "Agricultural wage relative to Material wage (Material wage = 1)") +
-  #   # scale_x_continuous(breaks = seq(2000, 2100, by = 25)) +
-  #   scale_x_continuous(breaks = c(2025, 2050, 2075, 2100)) +
-  #   scale_color_manual(values = scenario_colors) +
-  #   theme_bw() + themeds + 
-  #   theme(axis.text.x = element_text(angle = 30, hjust = 1))
-  
-  
-  # df.wage %>% select(scenario, region, year, sector, value) %>% mutate(variable = "wage") %>% 
-  #   bind_rows(df.labor %>% select(scenario, region, year, sector, value) %>% mutate(variable = "labor")) %>% 
-  #   spread(variable, value) %>% 
-  #   mutate(VAL = labor * wage) %>% 
-  #   group_by(scenario, year, sector) %>%  
-  #   summarise(VAL = sum(VAL, na.rm = T),
-  #             labor = sum(labor, na.rm = T)) %>% 
-  #   mutate(wage = VAL/labor, region = "World") %>% 
-  #   gather(variable, value, VAL:wage) %>% 
-  #   group_by(year, sector, region, variable) %>% 
-  #   mutate(index = 100 * value / value[scenario == "Ref"] - 100) %>% 
-  #   filter(scenario != 'Ref') %>%
-  #   SCE_NAME() %>% 
-  #   # filter(grepl("Canesm5", scenario)) %>% 
-  #   ggplot() +
-  #   geom_hline(yintercept = 0, linetype = "dotted", linewidth = 0.8) +
-  #   geom_line(aes(x = year, y = index, color = sector), linewidth = 1) +
-  #   facet_grid(scenario ~ variable, scales = "free_y") +
-  #   labs(x = "", y = "% change relative to Ref (Ref = 0)", title = "") +
-  #   theme_bw() + themeds + 
-  #   theme(axis.text.x = element_text(angle = 30, hjust = 1),
-  #         legend.position = "bottom")
-  
   
   plot.wage.10 %>% 
     group_by(scenario, sector, region, variable) %>% 
@@ -1125,121 +1205,26 @@ gdp.32.plot %>%
     R2L.10 
 
   
-  #### Return to land ----
-  
-  # PluckBind("Land") %>%  # thous km2
-  #   select(scenario, region, LandLeaf, year, value) %>% 
-  #   mutate(variable = "land") %>% 
-  #   bind_rows(PluckBind("ProfitRate") %>% # $1975/thous km2
-  #               select(scenario, region, LandLeaf, year, value) %>% 
-  #               mutate(variable = "pi")) %>% 
-  #   filter(year >= 2015) %>% 
-  #   spread(variable, value) %>% 
-  #   mutate(value = land * pi) ->
-  #   df.pi
-  
-  # splits <- strsplit(df.pi$LandLeaf, '_')
-  # splits <- lapply(splits, 'length<-', max(lengths(splits)))
-  # splits <- do.call(rbind, splits)
-  # df.pi[c('crop', 'WB', 'IRR', 'mgmt')] <- splits
-  
-  unique(df.pi$crop)
-  
-  df.pi %>% 
-    select(scenario, region, year, land, value, crop) %>% 
-    left_join(LandMapping %>% select(crop = LandLeaf, group = LandCover3), by = "crop") %>% 
-    mutate(group = ifelse(is.na(group), crop, group)) %>% 
-    filter(!grepl("Rock|Urban", group)) %>% 
-    mutate(group = gsub(" - Unmanaged| - Managed", "", group)) %>%
-    mutate(group = gsub("Unmanaged|Managed", "", group)) %>% 
-    mutate(group = gsub("Fixed", "Land", group),
-           group = ifelse(grepl("wood", group), "Forest", group)) %>%  
-    group_by(scenario, region, group, year) %>% 
-    summarise(value = sum(value, na.rm = T),
-              land = sum(land, na.rm = T)) %>% 
-    mutate(value = conv_75_90*value/10^6) -> # million 1990$
-    df.landvalue
-  
-  
-  df.landvalue %>% 
-    filter(group != "Other Land") %>% 
-    group_by(scenario, year, region) %>%  
-    summarise(value = sum(value, na.rm = T),
-              land = sum(land)) %>% 
-    group_by(year, region) %>% 
-    mutate(index = 100 * value / value[scenario == "Ref"] - 100,
-           delta = value - value[scenario == "Ref"] ) ->
-    R2A.32
-  
-  R2A.32 %>% filter(year == 2100, scenario == scenario_target) ->
-    delta.VAA.2100.r32
-  
-  REG %>% rename(region = reg_nm) %>%
-    left_join(delta.VAA.2100.r32, by = "region") %>% 
-    SCE_NAME() %>% 
-    ggplot() +
-    geom_sf(aes(fill = index)) +
-    scale_fill_gradient2(low = "red", high = "blue", midpoint = 0) +
-    coord_sf(datum = NA) + 
-    # labs(title = "Relative changes in total return to agricultural land (Ref = 0)") +
-    # facet_wrap(~ sector, ncol = 1) +
-    theme_bw() + theme0 + theme1 +
-    theme(legend.position="right",
-          plot.title = element_text(size = 16,
-                                    face = "bold"),
-          plot.subtitle = element_text(color = "blue"))  +
-    guides(fill = guide_colorbar(title = "%",
-                                 title.position = "top",
-                                 title.theme = element_text(size = 10,
-                                                            face = "bold",
-                                                            colour = "black",
-                                                            angle = 0))) ->
-    Fig3.R2A.32map; Fig3.R2A.32map
-  
-  Write_png(Fig3.R2A.32map, "Fig3.R2A.32map", DIR_MODULE, w = 6, h = 2, r = 300)
-  
-  
-  df.landvalue %>% 
-    filter(group != "Other Land") %>% 
-    left_join(Regmapping %>% select(region, REG10_main), by = "region") %>% 
-    group_by(scenario, year, group, region = REG10_main) %>%  
-    summarise(value = sum(value, na.rm = T),
-              land = sum(land)) %>% 
-    group_by(year, region, group) %>% 
-    mutate(index = 100 * value / value[scenario == "Ref"] - 100,
-           delta = value - value[scenario == "Ref"]) ->
-    R2A.10
-  
-  
-  R2A.10 %>% 
-    group_by(scenario, year, region) %>% 
-    summarise(value = sum(value, na.rm = T),
-              delta = sum(delta, na.rm = T),
-              land = sum(land, na.rm = T)) ->
-    R2A.agg.10
-  
-  
-  R2A.10 %>% 
-    filter(grepl(scenario_target, scenario)) %>% 
-    mutate(region = factor(region, levels = reg_order)) %>% 
-    ggplot() +
-    geom_hline(yintercept = 0, linetype = "dotted", linewidth = 0.8) +
-    geom_bar(aes(x = year, y = delta, fill = group),
-             stat = "identity", position = "stack") +
-    geom_errorbar(data = R2A.agg.10 %>% filter(grepl(scenario_target, scenario)) %>% 
-                    mutate(region = factor(region, levels = reg_order)), 
-                  aes(x = year, ymin = delta, ymax = delta), linetype = "dashed", linewidth = 1) +
-    facet_wrap(~ region, ncol = 5) +
-    # facet_wrap(~ region, ncol = 5, scales = "free_y") +
-    labs(x = "", y = "million 1900$", title = "Return to land relative to Ref (Ref = 0)") +
-    scale_fill_brewer(palette = "Set2") +
-    theme_bw() + themeds + 
-    theme(axis.text.x = element_text(angle = 30, hjust = 1)) ->
-    Fig3.S2.R2A.10; Fig3.S2.R2A.10
-  
-  Write_png(Fig3.S2.R2A.10, "Fig3.S2.R2A.10", DIR_MODULE, w = 12, h = 6, r = 300)
-  
+
   #### Return to capital ----
+  
+  
+  PluckBind("SAM_NA") %>% 
+    # select(scenario, region, Account, year, value) %>% 
+    filter(Account == "capital-price") -> 
+    df.r
+  
+  df.r %>% 
+    group_by(region, year) %>% 
+    mutate(index = 100 * value / value[scenario == "Ref"] - 100) %>% 
+    filter(year >= 2015, scenario == scenario_target) %>%
+    ggplot() +
+    geom_hline(yintercept = 0, color = "blue", linetype = "dotted") +
+    geom_line(aes(x = year, y = index), linewidth = 0.8) +
+    facet_wrap(~ region, ncol = 8) +
+    labs(title = "Relative changes in capital prices", y = "%", x = "") +
+    theme_bw() + themeds
+  
   
   # energy service value = R2K_EN
   # Pk_Ag * Qk_Ag = R2K_AG
@@ -1279,77 +1264,254 @@ gdp.32.plot %>%
     R2K.10
   
   
-  # R2K.10 %>% ungroup() %>% 
-  #   filter(scenario == scenario_target) %>% 
-  #   SCE_NAME() %>% 
+  #### Return to land ----
+  
+  df.wage %>% select(scenario, region, year, sector, value) %>% mutate(variable = "wage") %>% 
+    bind_rows(df.labor %>% select(scenario, region, year, sector, value) %>% mutate(variable = "labor")) %>% 
+    spread(variable, value) %>% 
+    mutate(VAL = labor * wage) %>% 
+    select(scenario, region, year, sector, VAL) %>% 
+    spread(sector, VAL) %>% 
+    select(-Labor_Total) %>% 
+    rename(R2L_AG = Labor_Ag, R2L_MA = Labor_Materials) %>% # million 1990$
+    left_join(R2K, by = c("scenario", "region", "year")) %>% # million 1990$
+    left_join(df.GDP %>% select(scenario, region, year, GDP = value)) %>% 
+    mutate(R2A_AG = GDP - R2L_AG - R2L_MA- R2K_AG - R2K_MA -R2K_EN) %>% 
+    gather(factor, value, R2L_AG:R2A_AG) %>% 
+    group_by(region, year, factor) %>% 
+    mutate(delta = value - value[scenario == "Ref"],
+           index = 100 * value / value[scenario == "Ref"] - 100) ->
+    df.decomp.all
+
+  
+  # PluckBind("Land") %>%  # thous km2
+  #   select(scenario, region, LandLeaf, year, value) %>% 
+  #   mutate(variable = "land") %>% 
+  #   bind_rows(PluckBind("ProfitRate") %>% # $1975/thous km2
+  #               select(scenario, region, LandLeaf, year, value) %>% 
+  #               mutate(variable = "pi")) %>% 
+  #   filter(year >= 2015) %>% 
+  #   spread(variable, value) %>% 
+  #   mutate(value = land * pi) ->
+  #   df.pi
+  
+  # splits <- strsplit(df.pi$LandLeaf, '_')
+  # splits <- lapply(splits, 'length<-', max(lengths(splits)))
+  # splits <- do.call(rbind, splits)
+  # df.pi[c('crop', 'WB', 'IRR', 'mgmt')] <- splits
+  
+  # unique(df.pi$crop)
+  # 
+  # df.pi %>% 
+  #   select(scenario, region, year, land, value, crop) %>% 
+  #   left_join(LandMapping %>% select(crop = LandLeaf, group = LandCover3), by = "crop") %>% 
+  #   mutate(group = ifelse(is.na(group), crop, group)) %>% 
+  #   filter(!grepl("Other Fixed", group)) %>% 
+  #   mutate(group = gsub(" - Unmanaged| - Managed", "", group)) %>%
+  #   mutate(group = gsub("Unmanaged|Managed", "", group)) %>% 
+  #   mutate(group = gsub("Fixed", "Land", group),
+  #          group = ifelse(grepl("wood", group), "Forest", group)) %>% 
+  #   group_by(scenario, region, group, year) %>% 
+  #   summarise(value = sum(value, na.rm = T),
+  #             land = sum(land, na.rm = T)) %>% 
+  #   mutate(value = conv_75_90*value/10^6) -> # million 1990$
+  #   df.landvalue
+  # 
+  # 
+  # df.landvalue %>% 
+  #   filter(group != "Other Land") %>% 
+  #   group_by(scenario, year, region) %>%  
+  #   summarise(value = sum(value, na.rm = T),
+  #             land = sum(land)) %>% 
+  #   group_by(year, region) %>% 
+  #   mutate(index = 100 * value / value[scenario == "Ref"] - 100,
+  #          delta = value - value[scenario == "Ref"] ) ->
+  #   R2A.32
+  
+   # R2A.32 %>% filter(year == 2100, scenario == scenario_target) ->
+   #  delta.VAA.2100.r32
+   
+  df.decomp.all %>% 
+    filter(factor == "R2A_AG",
+           year == 2100, 
+           scenario == scenario_target) ->
+    delta.VAA.2100.r32
+    
+  REG %>% rename(region = reg_nm) %>%
+    left_join(delta.VAA.2100.r32, by = "region") %>% 
+    SCE_NAME() %>% 
+    ggplot() +
+    geom_sf(aes(fill = index)) +
+    scale_fill_gradient2(low = "red", high = "blue", midpoint = 0) +
+    coord_sf(datum = NA) + 
+    # labs(title = "Relative changes in total return to agricultural land (Ref = 0)") +
+    # facet_wrap(~ sector, ncol = 1) +
+    theme_bw() + theme0 + theme1 +
+    theme(legend.position="right",
+          plot.title = element_text(size = 16,
+                                    face = "bold"),
+          plot.subtitle = element_text(color = "blue"))  +
+    guides(fill = guide_colorbar(title = "%",
+                                 title.position = "top",
+                                 title.theme = element_text(size = 10,
+                                                            face = "bold",
+                                                            colour = "black",
+                                                            angle = 0))) ->
+    Fig3.R2A.32map; Fig3.R2A.32map
+  
+  Write_png(Fig3.R2A.32map, "Fig3.R2A.32map", DIR_MODULE, w = 6, h = 2, r = 300)
+  
+  
+  # df.landvalue %>% 
+  #   filter(group != "Other Land") %>% 
+  #   left_join(Regmapping %>% select(region, REG10_main), by = "region") %>% 
+  #   group_by(scenario, year, group, region = REG10_main) %>%  
+  #   summarise(value = sum(value, na.rm = T),
+  #             land = sum(land)) %>% 
+  #   group_by(year, region, group) %>% 
+  #   mutate(index = 100 * value / value[scenario == "Ref"] - 100,
+  #          delta = value - value[scenario == "Ref"]) ->
+  #   R2A.10
+  # 
+  # 
+  # R2A.10 %>% 
+  #   group_by(scenario, year, region) %>% 
+  #   summarise(value = sum(value, na.rm = T),
+  #             delta = sum(delta, na.rm = T),
+  #             land = sum(land, na.rm = T)) ->
+  #   R2A.agg.10
+  # 
+  # 
+  # R2A.10 %>% 
+  #   filter(grepl(scenario_target, scenario)) %>% 
   #   mutate(region = factor(region, levels = reg_order)) %>% 
   #   ggplot() +
-  #   geom_bar(aes(x = year, y = delta, fill = sector), 
+  #   geom_hline(yintercept = 0, linetype = "dotted", linewidth = 0.8) +
+  #   geom_bar(aes(x = year, y = delta, fill = group),
   #            stat = "identity", position = "stack") +
-  #   # facet_wrap(~ region, ncol = 5, scales = "free_y") +
-  #   geom_errorbar(data = R2K.10 %>% filter(scenario == scenario_target) %>% SCE_NAME() %>% 
-  #                   mutate(region = factor(region, levels = reg_order)) %>% 
-  #                   group_by(scenario, year, region) %>% 
-  #                   summarise(delta = sum(delta, na.rm = T)),
-  #                 aes(x = year, ymin = delta, ymax = delta), linewidth = 0.8) +
+  #   geom_errorbar(data = R2A.agg.10 %>% filter(grepl(scenario_target, scenario)) %>% 
+  #                   mutate(region = factor(region, levels = reg_order)), 
+  #                 aes(x = year, ymin = delta, ymax = delta), linetype = "dashed", linewidth = 1) +
   #   facet_wrap(~ region, ncol = 5) +
-  #   labs(x = "", y = "change relative to Ref (million 1990$)", title = "Return to capital") +
+  #   # facet_wrap(~ region, ncol = 5, scales = "free_y") +
+  #   labs(x = "", y = "million 1900$", title = "Return to land relative to Ref (Ref = 0)") +
+  #   scale_fill_brewer(palette = "Set2") +
   #   theme_bw() + themeds + 
-  #   theme(axis.text.x = element_text(angle = 45, hjust = 1),
-  #         legend.position = "bottom")
-  
-  
+  #   theme(axis.text.x = element_text(angle = 30, hjust = 1)) ->
+  #   Fig3.S2.R2A.10; Fig3.S2.R2A.10
+  # 
+  # Write_png(Fig3.S2.R2A.10, "Fig3.S2.R2A.10", DIR_MODULE, w = 12, h = 6, r = 300)
+  # 
   #### decomposition ----
   
-  plot.wage.10 %>% 
-    group_by(year, sector, region, variable) %>% 
+  # plot.wage.10 %>% 
+  #   group_by(year, sector, region, variable) %>% 
+  #   mutate(delta = value - value[scenario == "Ref"],
+  #          index = 100 * value / value[scenario == "Ref"] - 100)  %>% 
+  #   filter(variable == "VAL") %>% ungroup() %>% 
+  #   filter(sector != "Labor_Total") %>% 
+  #   mutate(sector = gsub("Labor_Ag", "Ag", sector ),
+  #          sector = gsub("Labor_Materials", "NonAg", sector),
+  #          input = "labor") %>% 
+  #   select(-value, -variable) %>% 
+  #   bind_rows(R2A.10 %>% group_by(scenario, year, region) %>% 
+  #               summarise(value = sum(value, na.rm = T)) %>% 
+  #               mutate(sector = "Ag", input = "land") %>% 
+  #               group_by(year, sector, region) %>% 
+  #               mutate(delta = value - value[scenario == "Ref"],
+  #                      index = 100 * value / value[scenario == "Ref"] - 100) %>% 
+  #               select(-value)) %>% 
+  #   bind_rows(R2K.10 %>% filter(year >= 2015) %>% 
+  #               mutate(delta = value - value[scenario == "Ref"]) %>% 
+  #               mutate(sector = gsub("R2K_", "", sector), input = "capital") %>% select(-value)) %>% 
+  #   mutate(sector = gsub("AG", "Ag", sector),
+  #          delta = delta * CONV_90_15) -> # 1990$ to 2015$
+  #   GVA.10
+  
+  df.decomp.all %>% filter(factor != "GDP") %>% 
+    separate(col = factor, into = c("input", "sector"), sep = "_") %>%  
+    mutate(input = gsub("R2L", "labor", input),
+           input = gsub("R2K", "capital", input),
+           input = gsub("R2A", "land", input),
+           sector = ifelse(sector == "AG", "Ag", "NonAg")) %>% 
+    group_by(scenario, region, year, input, sector) %>% 
+    summarise(value = sum(value)) %>% 
+    left_join(Regmapping %>% select(region, REG10_main), by = "region") ->
+    df.comp.exp.r32
+  
+  
+  df.comp.exp.r32 %>% 
+    group_by(scenario, year, input, sector) %>% 
+    summarise(value = sum(value)) %>% 
+    mutate(account = paste0(sector, "_", input)) %>%  
+    group_by(account, year) %>% 
     mutate(delta = value - value[scenario == "Ref"],
-           index = 100 * value / value[scenario == "Ref"] - 100)  %>% 
-    filter(variable == "VAL") %>% ungroup() %>% 
-    filter(sector != "Labor_Total") %>% 
-    mutate(sector = gsub("Labor_Ag", "Ag", sector ),
-           sector = gsub("Labor_Materials", "NonAg", sector),
-           input = "labor") %>% 
-    select(-value, -variable) %>% 
-    bind_rows(R2A.10 %>% group_by(scenario, year, region) %>% 
-                summarise(value = sum(value, na.rm = T)) %>% 
-                mutate(sector = "Ag", input = "land") %>% 
-                group_by(year, sector, region) %>% 
-                mutate(delta = value - value[scenario == "Ref"],
-                       index = 100 * value / value[scenario == "Ref"] - 100) %>% 
-                select(-value)) %>% 
-    bind_rows(R2K.10 %>% filter(year >= 2015) %>% 
-                mutate(delta = value - value[scenario == "Ref"]) %>% 
-                mutate(sector = gsub("R2K_", "", sector), input = "capital") %>% select(-value)) %>% 
-    mutate(sector = gsub("AG", "Ag", sector),
-           delta = delta * CONV_90_15) -> # 1990$ to 2015$
-    GVA.10
+           delta = delta * CONV_90_15) ->
+    plot.decom.glb
+    
+  
+  df.comp.exp.r32 %>% 
+    group_by(scenario, year, input, sector, region = REG10_main) %>% 
+    summarise(value = sum(value)) %>% 
+    mutate(account = paste0(sector, "_", input)) %>%  
+    group_by(account, region, year) %>% 
+    mutate(delta = value - value[scenario == "Ref"],
+           delta = delta * CONV_90_15) ->
+    plot.decom.r10
+  
   
   ##### global ----
   
-  GVA.10 %>% 
-    # filter(scenario %in% scenario_target) %>% 
-    filter(scenario != "Ref") %>% 
-    mutate(account = paste0(sector, "_", input)) %>% 
-    filter(scenario == scenario_target) %>% 
-    group_by(scenario, year, sector, account) %>% 
-    summarise(delta = sum(delta, na.rm = T)) %>% 
-    SCE_NAME() ->
-    df.plot
+  df.GDP %>% 
+    group_by(scenario, Account, Units, year) %>% 
+    left_join_error_no_match(Regmapping %>% select(region, REG10_main), by = "region") %>% 
+    group_by(scenario, region = REG10_main, year) %>% 
+    summarise(value = sum(value, na.rm = T)) %>% 
+    group_by(region, year) %>% 
+    mutate(delta = value - value[scenario == "Ref"],
+           delta = delta * CONV_90_15) %>% # 1990$ to 2015$
+    filter(year >= 2015)  ->
+    dg.gdp.layer.r10 # million 2015$
   
-  df.plot %>% 
+  
+  df.GDP %>% 
     group_by(scenario, year) %>% 
-    summarise(delta = sum(delta, na.rm = T)) %>% 
-    mutate(region = "World")->
-    df.GVA
+    summarise(value = sum(value, na.rm = T)) %>% 
+    group_by( year) %>% 
+    mutate(delta = value - value[scenario == "Ref"],
+           delta = delta * CONV_90_15) %>% # 1990$ to 2015$
+    filter(year >= 2015) %>% 
+    mutate(region = "World") ->
+    dg.gdp.layer.glb # million 2015$
   
+  
+  # GVA.10 %>% 
+  #   # filter(scenario %in% scenario_target) %>% 
+  #   filter(scenario != "Ref") %>% 
+  #   mutate(account = paste0(sector, "_", input)) %>% 
+  #   filter(scenario == scenario_target) %>% 
+  #   group_by(scenario, year, sector, account) %>% 
+  #   summarise(delta = sum(delta, na.rm = T)) %>% 
+  #   SCE_NAME() ->
+  #   df.plot
+  
+  # df.plot %>% 
+  #   group_by(scenario, year) %>% 
+  #   summarise(delta = sum(delta, na.rm = T)) %>% 
+  #   mutate(region = "World")->
+  #   df.GVA # million 2015
+  # 
  
-  df.plot %>% 
+  # df.plot %>% 
+  plot.decom.glb %>% filter(scenario == scenario_target) %>% SCE_NAME() %>% 
     ggplot(aes(x = year)) +
     geom_hline(yintercept = 0, color = "grey") +
-    geom_bar(aes(y = CONV_90_15*delta/1000, fill = account),
+    geom_bar(aes(y = delta/1000, fill = account),
              stat = "identity", position = "stack") +
-    geom_errorbar(data = df.GVA, aes(ymin = delta/1000, ymax = delta/1000), linewidth = 1) +
+    geom_errorbar(data = dg.gdp.layer.glb %>% select(-value) %>% 
+                    filter(scenario == scenario_target) %>% SCE_NAME(), 
+                  aes(ymin = delta/1000, ymax = delta/1000), 
+                  linewidth = 0.8) +
     # scale_alpha_manual(values = c("AG" = 0.5, "MA" = 0.9, "EN" = 0.2)) +
     scale_fill_manual(values = paired_colors2) +
     facet_wrap(~ region, nrow = 1) +
@@ -1362,28 +1524,33 @@ gdp.32.plot %>%
   
   ##### 10 regions ----
   
-  GVA.10 %>% 
-    # filter(scenario %in% scenario_target) %>% 
-    filter(scenario != "Ref") %>% 
-    mutate(account = paste0(sector, "_", input)) %>% 
-    filter(scenario == scenario_target) %>% 
-    SCE_NAME() %>% 
-    mutate(region = factor(region, levels = reg_order)) ->
-    df.plot
+  # GVA.10 %>% 
+  #   # filter(scenario %in% scenario_target) %>% 
+  #   filter(scenario != "Ref") %>% 
+  #   mutate(account = paste0(sector, "_", input)) %>% 
+  #   filter(scenario == scenario_target) %>% 
+  #   SCE_NAME() %>% 
+  #   mutate(region = factor(region, levels = reg_order)) ->
+  #   df.plot
+  # 
+  # df.plot %>% 
+  #   group_by(scenario, region, year) %>% 
+  #   summarise(delta = sum(delta, na.rm = T)) %>% 
+  #   mutate(region = factor(region, levels = reg_order)) ->
+  #   df.GVA
   
-  df.plot %>% 
-    group_by(scenario, region, year) %>% 
-    summarise(delta = sum(delta, na.rm = T)) %>% 
-    mutate(region = factor(region, levels = reg_order)) ->
-    df.GVA
   
-  
-  df.plot %>% 
+  # df.plot %>% 
+  plot.decom.r10 %>% filter(scenario == scenario_target) %>% SCE_NAME() %>% 
+    mutate(region = factor(region, levels = reg_order)) %>% 
     ggplot(aes(x = year)) +
     geom_hline(yintercept = 0, color = "grey") +
-    geom_bar(aes(y = CONV_90_15*delta/1000, fill = account),
+    geom_bar(aes(y = delta/1000, fill = account),
              stat = "identity", position = "stack") +
-    geom_errorbar(data = df.GVA, aes(ymin = CONV_90_15*delta/1000, ymax = CONV_90_15*delta/1000), linewidth = 1) +
+    geom_errorbar(data = dg.gdp.layer.r10 %>% 
+                    filter(scenario == scenario_target) %>% SCE_NAME() %>% 
+                    mutate(region = factor(region, levels = reg_order)), 
+                  aes(ymin = delta/1000, ymax = delta/1000), linewidth = 0.8) +
     # scale_alpha_manual(values = c("AG" = 0.5, "MA" = 0.9, "EN" = 0.2)) +
     scale_fill_manual(values = paired_colors2) +
     facet_wrap(~ region, nrow = 2) +
@@ -1394,23 +1561,26 @@ gdp.32.plot %>%
   
   Write_png(Fig3.R2KLA.10, "Fig3.R2KLA.10", DIR_MODULE, w = 12, h = 6, r = 300)
   
-  
-  df.plot %>% 
+  plot.decom.r10 %>% filter(scenario == scenario_target) %>% SCE_NAME() %>% 
+    mutate(region = factor(region, levels = reg_order)) %>% 
     ggplot(aes(x = year)) +
     geom_hline(yintercept = 0, color = "grey") +
-    geom_bar(aes(y = CONV_90_15*delta/1000, fill = account),
+    geom_bar(aes(y = delta/1000, fill = account),
              stat = "identity", position = "stack") +
-    geom_errorbar(data = df.GVA, aes(ymin = CONV_90_15*delta/1000, ymax = CONV_90_15*delta/1000), linewidth = 1) +
+    geom_errorbar(data = dg.gdp.layer.r10 %>% 
+                    filter(scenario == scenario_target) %>% SCE_NAME() %>% 
+                    mutate(region = factor(region, levels = reg_order)), 
+                  aes(ymin = delta/1000, ymax = delta/1000), linewidth = 1) +
     # scale_alpha_manual(values = c("AG" = 0.5, "MA" = 0.9, "EN" = 0.2)) +
     scale_fill_manual(values = paired_colors2) +
     facet_wrap(~ region, nrow = 2, scales = "free_y") +
     labs(x = "", y = "billion 2015$", 
-         title = "GDP response decomposition: income method, Combined_LS",
          fill = "Factor") +
-    theme_bw() + themeds + theme(legend.position = "none") ->
+    theme_bw() + themeds ->
     Fig3.R2KLA.10; Fig3.R2KLA.10
   
-  Write_png(Fig3.R2KLA.10, "Fig3.R2KLA.10.freey", DIR_MODULE, w = 14, h = 6, r = 300)
+  Write_png(Fig3.R2KLA.10, "Fig3.R2KLA.10.freey", DIR_MODULE, w = 12, h = 6, r = 300)
+
   
   
   ### Land   ----
@@ -1634,7 +1804,7 @@ gdp.32.plot %>%
   
   ### technology adoption rate ----
   # soi <- "LA"
-  soi <- "CLA_LS"
+  soi <- "CL_LS"
   # X-hi technology is more capital-intensive compared to X-lo technology
   df.pi %>% 
     filter(!is.na(mgmt)) %>% 
@@ -1688,43 +1858,7 @@ gdp.32.plot %>%
   Fig3.S1.tech_adoption.2100.r10; Fig3.S1.tech_adoption.2100.r10
   
   Write_png(Fig3.S1.tech_adoption.2100.r10, "Fig3.S1.tech_adoption.2100.r10", DIR_MODULE, w = 12, h = 6, r = 300)
-  
-  # df.pi %>% 
-  #   filter(!is.na(mgmt)) %>% 
-  #   left_join_error_no_match(Regmapping %>% select(region, REG10_main), by = "region") %>% 
-  #   group_by(scenario, region = REG10_main, year, crop, IRR, mgmt) %>% 
-  #   summarise(land = sum(land, na.rm =T)) %>% 
-  #   group_by(scenario, region, crop, year, mgmt) %>% 
-  #   summarise(land = sum(land, na.rm = T)) %>% 
-  #   group_by(scenario, region, crop, year) %>% 
-  #   mutate(total = sum(land, na.rm = T)) %>% 
-  #   mutate(share = land / total) %>% 
-  #   group_by(region, crop, year) %>% 
-  #   mutate(delta = share - share[scenario == "Ref"]) %>% 
-  #   filter(scenario == "L_Dunne") %>% 
-  #   filter(mgmt == "hi") %>% 
-  #   SCE_NAME() %>% 
-  #   ggplot(aes(weight = land)) +
-  #   geom_smooth(aes(x = year, y = delta)) +
-  #   geom_hline(yintercept = 0) +
-  #   facet_wrap(~ region, ncol = 5) +
-  #   # scale_color_manual(values = scenario_colors) +
-  #   theme_bw() + themeds
-  
-  
-  
-  PluckBind("AgCapitalDemand") %>% 
-    select(scenario, region, year) %>% 
-    mutate(input = "capital") %>% 
-    head
-  
-  Pland %>% 
-    filter(land == "Cropland") %>% 
-    group_by(scenario, region, year) %>% 
-    summarise(value = sum(value, na.rm = T)) %>% 
-    mutate(input = "land") %>% head
-  
-  
+
   
   # Output market  responses  ----
   
@@ -2052,11 +2186,7 @@ gdp.32.plot %>%
               delta = sum(delta, na.rm = T)) %>% 
     bind_rows(plot.decom.inv %>% select(-sector)) ->
     plot.decom.exp.AGNONAG
-    
   
-  check %>% select(-delta) %>% spread(account, value) %>% 
-    filter(year >= 2020) %>% 
-    mutate(check = INV - INV_Ag - INV_NonAg) %>% summary() 
   
   plot.decom.exp.AGNONAG %>% 
     group_by(scenario, year, account) %>% 
@@ -2098,14 +2228,14 @@ gdp.32.plot %>%
                SCE_NAME() %>% 
                mutate(region = factor(region, levels = reg_order)),
              aes(x = year, y = CONV_90_15 * delta/1000, fill = account), stat = "identity", position = "stack") +
-    # geom_errorbar(data = plot.decom.exp.AGNONAG %>% filter(!account %in% c("GDP", "INV")) %>% 
-    #                 filter(scenario == scenario_target) %>%
-    #                 group_by(scenario, year, region) %>% 
-    #                 summarise(delta = sum(delta, na.rm = T)) %>% 
-    #                 SCE_NAME() %>% 
-    #                 mutate(region = factor(region, levels = reg_order)),
-    #               aes(x = year, ymin = CONV_90_15 * delta/1000, ymax = CONV_90_15 * delta/1000),
-    #               linewidth = 1) +
+    geom_errorbar(data = plot.decom.exp.AGNONAG %>% filter(!account %in% c("GDP", "INV")) %>%
+                    filter(scenario == scenario_target) %>%
+                    group_by(scenario, year, region) %>%
+                    summarise(delta = sum(delta, na.rm = T)) %>%
+                    SCE_NAME() %>%
+                    mutate(region = factor(region, levels = reg_order)),
+                  aes(x = year, ymin = CONV_90_15 * delta/1000, ymax = CONV_90_15 * delta/1000),
+                  linewidth = 0.8) +
     scale_fill_manual(values = exp_colors) +
     facet_wrap(~ region, ncol = 5) +
     labs(x = "", y = "billion 2015$", 
@@ -2145,7 +2275,8 @@ gdp.32.plot %>%
              aes(x = year, y = CONV_90_15*delta/1000, fill = account), stat = "identity", position = "stack") +
     geom_errorbar(data = plot.decom.exp.glb %>% filter(!account %in% c("GDP", "INV")) %>% group_by(scenario, year) %>% 
                     summarise(delta = sum(delta, na.rm = T)) %>% filter(scenario == scenario_target) %>% SCE_NAME(),
-                  aes(x = year, ymin = CONV_90_15*delta / 1000, ymax = CONV_90_15*delta / 1000), linewidth = 0.8) +
+                  aes(x = year, ymin = CONV_90_15*delta / 1000, ymax = CONV_90_15*delta / 1000), 
+                  linewidth = 0.8) +
     scale_fill_manual(values = exp_colors) +
     facet_wrap(~ region) +
     labs(x = "", y = "billion 2015$", fill = "Factor") +
@@ -2449,7 +2580,7 @@ df.trade %>%
          NX_value = case_when(is.na(EX_value) ~ -IM_value, is.na(IM_value) ~ EX_value, TRUE ~ EX_value - IM_value)) %>% 
   filter(!commodity %in% c("Afr_MidE pipeline gas", "EUR pipeline gas", "LA pipeline gas", "LNG","coal", 
                           "N.Amer pipeline gas",   "PAC pipeline gas" , "RUS pipeline gas", "ammonia",
-                          "woodpulp" )) %>%
+                          "woodpulp" , "oil")) %>%
   mutate(group = "Other crops",
          # group = ifelse(commodity %in% c("sugarcrop"), "Sugarcrop", group),
          group = ifelse(commodity %in% c("corn","wheat","rice","soybean"), "Key crops", group),
@@ -2515,6 +2646,7 @@ plot.trade.10.value %>%
   df.plot.v
 
 df.plot.q %>% 
+  mutate(group = factor(group, levels = c("Key crops", "Other crops", "Livestock"))) %>% 
   ggplot() +
   geom_tile(aes(x = group, y = region, fill = value)) +
   scale_fill_gradient2(low = "#E69F00", mid = "white", high = "#009E73", midpoint = 0) +
@@ -2565,7 +2697,52 @@ plot.trade.10 %>%
 Fig4.trade.pct.10; Fig4.trade.pct.10
 
 Write_png(Fig4.trade.pct.10, "Fig4.trade.pct.10", DIR_MODULE, w = 10, h = 6, r = 300)
-# 
+ 
+
+
+### breakdown of regions and commodities ----
+
+df.trade %>% 
+  mutate(NX_Q = case_when(is.na(exports) ~ -imports, is.na(imports) ~ exports, TRUE ~ exports - imports),
+         NX_value = case_when(is.na(EX_value) ~ -IM_value, is.na(IM_value) ~ EX_value, TRUE ~ EX_value - IM_value)) %>% 
+  filter(commodity %in% c("sugarcrop")) %>%
+  # filter(commodity %in% c("fibercrop", "fruits", "legumes", "misccrop", "nuts_seeds",
+  #                         "oilcrop", "oilpalm", "othergrain", "root_tuber", "sugarcrop", "vegetables")) %>% 
+  gather(var, value, exports:NX_value) %>% 
+  group_by(region, commodity, var, year, Units_Q, Unit) %>% 
+  mutate(delta = value - value[scenario == "Ref"],
+         index = 100 * value / value[scenario == "Ref"] - 100) %>% 
+  filter(year >= 2015,
+         scenario != "Ref") %>% 
+  ungroup() ->
+  plot.trade.commodity.r32
+
+
+REG %>% left_join(plot.trade.commodity.r32 %>% filter(scenario == scenario_target) %>% 
+                    filter(year == 2100) %>% filter(var %in% c("exports", "imports")) %>% 
+                    select(reg_nm = region, delta, var), by = "reg_nm") %>% 
+  ggplot() +
+  geom_sf(aes(fill = delta)) +
+  scale_fill_gradient2(low = "#E69F00", mid = "white", high = "#009E73", midpoint = 0) +
+  facet_grid(~ var) + coord_sf(datum = NA) + 
+  # labs(title = "Absolute changes in cropland (Ref = 0)") +
+  theme_bw() + theme0 + theme1 +
+  theme(legend.position="right",
+        plot.title = element_text(size = 16,
+                                  face = "bold"),
+        plot.subtitle = element_text(color = "blue"))  +
+  guides(fill = guide_colorbar(title = "Mt",
+                               title.position = "top",
+                               title.theme = element_text(size = 10,
+                                                          face = "bold",
+                                                          colour = "black",
+                                                          angle = 0))) ->
+  FigS4.sugarcrop.trade.Q.32map; FigS4.sugarcrop.trade.Q.32map
+
+Write_png(FigS4.sugarcrop.trade.Q.32map, "FigS4.sugarcrop.trade.Q.32map", DIR_MODULE, w = 6, h = 2, r = 300)
+
+  
+
 # plot.trade.10 %>% 
 #   filter(scenario == scenario_target) %>%
 #   filter(group != "Forestry") %>% 
@@ -2600,641 +2777,641 @@ Write_png(Fig4.trade.pct.10, "Fig4.trade.pct.10", DIR_MODULE, w = 10, h = 6, r =
 
 ## Water ----
 
-PluckBind("WaterWWSec") %>% 
-  filter(sector %in% unique(MapAgCOMM$AgCOMM)) %>% # filter out ag water use: irrigation water
-  group_by(scenario, Units, year) %>% 
-  summarise(value = sum(value, na.rm = T)) %>% 
-  group_by( year) %>% 
-  mutate(index = value / value[scenario == "Ref"],
-         delta = value - value[scenario == "Ref"]) ->
-  df.water.glb
-
-PluckBind("WaterWWSec") %>% 
-  filter(sector %in% unique(MapAgCOMM$AgCOMM)) %>% 
-  group_by(scenario, region, Units, year) %>% 
-  summarise(value = sum(value, na.rm = T)) %>% 
-  group_by(region, year) %>% 
-  mutate(index = value / value[scenario == "Ref"],
-         delta = value - value[scenario == "Ref"]) ->
-  df.water
-
-df.water %>% 
-  SCE_NAME() %>% 
-  ggplot() +
-  geom_line(aes(x = year, y = index, color = scenario), linewidth = 0.8) +
-  facet_wrap(~ region, ncol = 8) +
-  scale_color_manual(values = scenario_colors) +
-  labs(x = "", y = "Irrigation water changes relative to Ref (Ref = 1)") +
-  theme_bw() + themeds 
-
-REG %>% left_join(df.water %>% 
-                    filter(year == 2100, scenario == "CL_LS") %>% 
-                    select(reg_nm = region, index, delta),
-                  by = "reg_nm") %>%  
-  ggplot() +
-  geom_sf(aes(fill = 100*index-100)) +
-  # scale_fill_viridis() +
-  scale_fill_gradient2(low = "blue", high = "red", midpoint = 0) +
-  coord_sf(datum = NA) + 
-  labs(title = "% change of irrigated water withdrawal relative to Ref (Ref = 0)") +
-  theme_bw() + theme0 + theme1 +
-  theme(legend.position="right",
-        plot.title = element_text(hjust = 0.5,
-                                  color = "Gray40",
-                                  size = 16,
-                                  face = "bold"),
-        plot.subtitle = element_text(color = "blue"),
-        plot.caption = element_text(color = "Gray60"))  +
-  guides(fill = guide_colorbar(title = "%",
-                               title.position = "top",
-                               title.theme = element_text(size = 10,
-                                                          face = "bold",
-                                                          colour = "black",
-                                                          angle = 0)))
-
-
-REG %>% left_join(df.water %>% 
-                    filter(year == 2100, scenario == "CL_LS") %>% 
-                    select(reg_nm = region, index, delta),
-                  by = "reg_nm") %>%  
-  ggplot() +
-  geom_sf(aes(fill = delta)) +
-  # scale_fill_viridis() +
-  scale_fill_gradient2(low = "blue", high = "red", midpoint = 0) +
-  coord_sf(datum = NA) + 
-  labs(title = "Level change of irrigated water withdrawal relative to Ref (Ref = 0)") +
-  theme_bw() + theme0 + theme1 +
-  theme(legend.position="right",
-        plot.title = element_text(hjust = 0.5,
-                                  color = "Gray40",
-                                  size = 16,
-                                  face = "bold"),
-        plot.subtitle = element_text(color = "blue"),
-        plot.caption = element_text(color = "Gray60"))  +
-  guides(fill = guide_colorbar(title = "km^3",
-                               title.position = "top",
-                               title.theme = element_text(size = 10,
-                                                          face = "bold",
-                                                          colour = "black",
-                                                          angle = 0)))
-
-PluckBind("WaterWWSec") %>% 
-  filter(sector %in% unique(MapAgCOMM$AgCOMM)) %>% 
-  group_by(scenario, region, sector, Units, year) %>% 
-  summarise(value = sum(value, na.rm = T)) %>% 
-  filter(year >= 2015) %>% spread(scenario, value) %>% 
-  filter(!is.na(Ref)) %>% 
-  group_by(region, sector, year) %>% 
-  mutate(index = CL_LS / Ref,
-         delta = CL_LS - Ref) ->
-  df.water.sec
-
-
-df.water.sec %>% 
-  select(region, sector, Units, year, index, delta) %>% 
-  filter(year == 2100) %>% 
-  gather(variable, value, index:delta) %>% 
-  group_by(sector, variable, year) %>% 
-  summarise(y05 = quantile(value, 0.05, na.rm = T),
-            y25 = quantile(value, 0.25, na.rm = T),
-            y50 = quantile(value, 0.50, na.rm = T),
-            y75 = quantile(value, 0.75, na.rm = T),
-            y95 = quantile(value, 0.95, na.rm = T),
-            mean = mean(value, na.rm = T)) ->
-  box.water.sec
-
-box.water.sec %>% 
-  filter(variable == "index") %>% 
-  ggplot() +
-  geom_hline(yintercept = 1, linetype = "dotted") +
-  geom_boxplot(aes(x = sector, lower = y25, upper = y75, middle = y50, 
-                   ymin = y05, ymax = y95, alpha = year), stat = "identity") +
-  geom_errorbar(aes(x = sector, ymin = mean, ymax = mean), color = "red") +
-  labs(x = "", y = "index", 
-       title = "Water withdrawal changes relative to Ref (Ref = 1)\nCombined: LS, 2100") +
-  theme_bw() + themeds 
-
-
-box.water.sec %>% 
-  filter(variable == "delta") %>% 
-  ggplot() +
-  geom_hline(yintercept = 1, linetype = "dotted") +
-  geom_boxplot(aes(x = sector, lower = y25, upper = y75, middle = y50, 
-                   ymin = y05, ymax = y95, alpha = year), stat = "identity") +
-  geom_errorbar(aes(x = sector, ymin = mean, ymax = mean), color = "red") +
-  labs(x = "", y = "km^3", 
-       title = "Water withdrawal changes relative to Ref (Ref = 0)\nCombined: LS, 2100") +
-  theme_bw() + themeds 
-
-
-
-
-
-# check additional results ----
-PSUA %>% 
-  na.omit() %>% 
-  left_join_error_no_match(
-    MapAgCOMM %>% select(sector = AgCOMM, AgCOMM5) %>% 
-      mutate(sector = tolower(sector)), by = "sector") %>% 
-  Agg_reg(element, AgCOMM5, region) %>% 
-  rename(sector = AgCOMM5) %>% 
-  mutate(element = gsub("Supply: ", "", element),
-         element = gsub("Demand: ", "", element)) %>% 
-  filter(element %in% c("Export", "Import")) %>% 
-  spread(element, value) %>% 
-  mutate(value = Import + Export,
-         element = "Net import (Mt)") %>% 
-  select(-Export, -Import)->
-  check
-
-check %>% 
-  group_by(element, sector, region, year) %>% 
-  mutate(delta = value - value[scenario == "Ref"]) %>% 
-  filter(scenario == "CL_LS") %>%  
-  SCE_NAME() %>% 
-  ggplot() +
-  geom_bar(aes(x = year, y = -delta, fill = sector),
-           stat = "identity", position = "stack") +
-  facet_wrap(~ region, ncol = 8) +
-  labs(x = "", y = "Mt", title = "Changes in net export relative to Ref (Ref = 0): Combined_LS") +
-  theme_bw() + themeds 
-
-
-
-PSUA %>% 
-  na.omit() %>% 
-  left_join_error_no_match(
-    MapAgCOMM %>% select(sector = AgCOMM, AgCOMM5) %>% 
-      mutate(sector = tolower(sector)), by = "sector") %>% 
-  left_join_error_no_match(Regmapping) %>% 
-  Agg_reg(element, AgCOMM5, REG10_main) %>% 
-  rename(sector = AgCOMM5, region = REG10_main) %>% 
-  mutate(element = gsub("Supply: ", "", element),
-         element = gsub("Demand: ", "", element)) %>% 
-  filter(element %in% c("Export", "Import")) %>% 
-  spread(element, value) %>% 
-  mutate(value = Import + Export,
-         element = "Net import (Mt)") %>% 
-  select(-Export, -Import)->
-  Key1.A.TRADE.reg10
-
-Key1.A.TRADE.reg10 %>% 
-  group_by(element, sector, region, year) %>% 
-  mutate(delta = value - value[scenario == "Ref"]) %>% 
-  filter(scenario == "CL_LS") %>%  
-  SCE_NAME() %>% 
-  mutate(region = factor(region, levels = reg_order)) %>% 
-  ggplot() +
-  geom_bar(aes(x = year, y = -delta, fill = sector),
-           stat = "identity", position = "stack") +
-  facet_wrap(~ region, ncol = 5) +
-  labs(x = "", y = "Mt", title = "Changes in net export relative to Ref (Ref = 0): Combined_LS") +
-  theme_bw() + themeds
-
-
-ag_en_exports_value %>% rename(Mt = exports) %>% mutate(variable = "export") %>% 
-  bind_rows(ag_en_imports_value %>% rename(Mt = imports) %>% mutate(variable = "import")) %>% 
-  rename(sector = commodity) %>% 
-  left_join(
-    MapAgCOMM %>% select(sector = AgCOMM, AgCOMM5) %>%
-      mutate(sector = tolower(sector)), by = "sector") %>%
-  na.omit() %>% 
-  select(scenario, sector,  year, variable, value, price, Mt) %>% 
-  group_by(scenario, sector,  year, variable) %>% 
-  summarise(value = sum(value, na.rm = T),
-            Mt = sum(Mt, na.rm = T),
-            price = value / Mt) %>% 
-  group_by(sector, year, variable) %>% 
-  mutate(index_value = value / value[scenario == "Ref"],
-         index_Q = Mt / Mt[scenario == "Ref"],
-         index_P = price / price[scenario == "Ref"]) %>% 
-  filter(year >= 2015) ->
-  index_trade_glb_sec
-
-index_trade_glb_sec %>% 
-  filter(scenario == "CL_LS") %>%  
-  ungroup() %>% 
-  SCE_NAME() %>% 
-  select(scenario, sector, year, variable, index_value, index_Q, index_P) %>% 
-  gather(index, value, index_value:index_P) %>% 
-  # filter(index == "index_P") %>% 
-  # mutate(region = factor(region, levels = reg_order)) %>% 
-  ggplot() +
-  geom_hline(yintercept = 1, linewidth = 0.8, color = "grey") +
-  geom_line(aes(x = year, y = value, color = index, linetype = variable)) +
-  facet_wrap(~ sector, ncol = 10) +
-  labs(x = "", y = "index", title = "Changes in trade metric relative to Ref (Ref = 0): Combined_LS, Other Crops") +
-  theme_bw() + themeds
-
-ag_en_exports_value %>% rename(Mt = exports) %>% mutate(variable = "export") %>% 
-  bind_rows(ag_en_imports_value %>% rename(Mt = imports) %>% mutate(variable = "import")) %>% 
-  rename(sector = commodity) %>% 
-  left_join(
-    MapAgCOMM %>% select(sector = AgCOMM, AgCOMM5) %>%
-      mutate(sector = tolower(sector)), by = "sector") %>%
-  na.omit() %>% 
-  select(scenario, region, sector = AgCOMM5, year, variable, value, price, Mt) %>% 
-  group_by(scenario, region, sector, year, variable) %>% 
-  summarise(value = sum(value, na.rm = T),
-            Mt = sum(Mt, na.rm = T),
-            price = value / Mt) %>% 
-  group_by(region, sector, year, variable) %>% 
-  mutate(index_value = value / value[scenario == "Ref"],
-         index_Q = Mt / Mt[scenario == "Ref"],
-         index_P = price / price[scenario == "Ref"]) %>% 
-  filter(year >= 2015) ->
-  index_trade
-
-index_trade %>% 
-  filter(scenario == "CL_LS") %>%  
-  filter(sector == "Other crops") %>%  
-  ungroup() %>% 
-  SCE_NAME() %>% 
-  select(scenario, region, sector, year, variable, index_value, index_Q, index_P) %>% 
-  gather(index, value, index_value:index_P) %>% 
-  # filter(index == "index_P") %>% 
-  # mutate(region = factor(region, levels = reg_order)) %>% 
-  ggplot() +
-  geom_line(aes(x = year, y = value, color = index, linetype = variable)) +
-  facet_wrap(~ region, ncol = 8) +
-  labs(x = "", y = "index", title = "Changes in trade metric relative to Ref (Ref = 0): Combined_LS, Other Crops") +
-  theme_bw() + themeds
-
-
-
-
-
-ag_en_exports_value %>% rename(Mt = exports) %>% mutate(variable = "export") %>% 
-  bind_rows(ag_en_imports_value %>% rename(Mt = imports) %>% mutate(variable = "import")) %>% 
-  rename(sector = commodity) %>% 
-  left_join(
-    MapAgCOMM %>% select(sector = AgCOMM, AgCOMM5) %>% 
-      mutate(sector = tolower(sector)), by = "sector") %>% 
-  left_join_error_no_match(Regmapping %>% select(region, REG10_main)) %>% 
-  na.omit() %>% 
-  select(scenario, region = REG10_main, sector = AgCOMM5, year, variable, value, price, Mt) %>% 
-  group_by(scenario, region, sector, year, variable) %>% 
-  summarise(value = sum(value, na.rm = T),
-            Mt = sum(Mt, na.rm = T),
-            price = value / Mt) %>% 
-  group_by(region, sector, year, variable) %>% 
-  mutate(index_value = value / value[scenario == "Ref"],
-         index_Q = Mt / Mt[scenario == "Ref"],
-         index_P = price / price[scenario == "Ref"]) %>% 
-  filter(year >= 2015) ->
-  index_trade_10
-
-index_trade_10 %>% 
-  select(scenario, region, sector, year, variable, value) %>% 
-  spread(variable, value) %>% 
-  mutate(NX_V = export - import) %>% 
-  group_by(region, sector, year) %>% 
-  mutate(index_NX_V = NX_V / NX_V[scenario == "Ref"]) ->
-  index_NXV
-
-index_trade_10 %>% 
-  filter(scenario == "CL_LS") %>%  
-  filter(sector == "Other crops") %>% 
-  SCE_NAME() %>% 
-  select(scenario, region, sector, year, variable, index_value, index_Q, index_P) %>% 
-  gather(index, value, index_value:index_P) %>% 
-  mutate(region = factor(region, levels = reg_order)) %>%
-  ggplot() +
-  geom_line(aes(x = year, y = value, color = index, linetype = variable), linewidth = 0.8) +
-  facet_wrap(~ region, ncol = 5) +
-  labs(x = "", y = "index", title = "Changes in trade metric relative to Ref (Ref = 0): Combined_LS, Other Crops") +
-  theme_bw() + themeds
-
-
-AgElement_AreaYieldPrice %>% 
-  mutate(group = ifelse(sector %in% c("beef", "dairy","pork","poultry","sheepgoat" ), "animal", sector),
-         group = ifelse(group %in% c("corn", "rice", "soybean", "wheat", "animal", "sugarcrop"), group, "others")) %>% 
-  filter(group != "animal") %>% 
-  select(scenario, region, group, year, element, value) %>% 
-  filter(element %in% c("Area", "Production", "Revenue")) %>% 
-  group_by(scenario, region, year, element) %>% 
-  summarise(value = sum(value, na.rm = T)) %>% 
-  spread(element, value) %>% 
-  mutate(Yield = Production / Area,
-         Price = Revenue / Production) %>%  
-  gather(account, value, Area:Price) %>% 
-  mutate(group = 'AG') %>% 
-  bind_rows(AYPP_32) ->
-  AGG_AYPP_32
-
-
-AgElement_AreaYieldPrice %>% 
-  mutate(group = ifelse(sector %in% c("beef", "dairy","pork","poultry","sheepgoat" ), "animal", sector),
-         group = ifelse(group %in% c("corn", "rice", "soybean", "wheat", "animal", "sugarcrop"), group, "others")) %>% 
-  filter(group != "animal") %>% 
-  select(scenario, region, group, year, element, value) %>% 
-  left_join_error_no_match(Regmapping %>% select(region, REG10_main)) %>% 
-  filter(element %in% c("Area", "Production", "Revenue")) %>% 
-  group_by(scenario, region = REG10_main, group, year, element) %>% 
-  summarise(value = sum(value, na.rm = T)) %>% 
-  spread(element, value) %>% 
-  mutate(Yield = Production / Area,
-         Price = Revenue / Production) %>% 
-  gather(account, value, Area:Price) ->
-  AYPP_10
-
-AgElement_AreaYieldPrice %>% 
-  mutate(group = ifelse(sector %in% c("beef", "dairy","pork","poultry","sheepgoat" ), "animal", sector),
-         group = ifelse(group %in% c("corn", "rice", "soybean", "wheat", "animal", "sugarcrop"), group, "others")) %>% 
-  filter(group != "animal") %>% 
-  select(scenario, region, group, year, element, value) %>% 
-  left_join_error_no_match(Regmapping %>% select(region, REG10_main)) %>% 
-  filter(element %in% c("Area", "Production", "Revenue")) %>% 
-  group_by(scenario, region = REG10_main, year, element) %>% 
-  summarise(value = sum(value, na.rm = T)) %>% 
-  spread(element, value) %>% 
-  mutate(Yield = Production / Area,
-         Price = Revenue / Production) %>% 
-  gather(account, value, Area:Price) %>% 
-  mutate(group = 'AG') %>% 
-  bind_rows(AYPP_10) ->
-  AGG_AYPP_10
-
-
-df.KLA.ag %>% spread(input, value) %>% 
-  mutate(LK_Ag = Labor_Ag / Capital_Ag) %>% 
-  gather(input, value, Capital_Ag:LK_Ag) %>% 
-  # filter(scenario == "CL_LS") %>%
-  SCE_NAME() %>% 
-  mutate(region = factor(region, levels = reg_order)) %>% 
-  filter(input == "LK_Ag", year >= 2015) %>% 
-  ggplot() +
-  geom_line(aes(x = year, y = 1/value, color = scenario),linewidth = 0.8) +
-  facet_wrap(~ region, ncol = 5, scales = "free_y") +
-  scale_color_manual(values = scenario_colors) +
-  labs(x = "", y = "index", title = "Capital-labor ratio in Ag") +
-  theme_bw() + themeds 
-
-
-plot.wage.10 %>% 
-  filter(variable == "VAL") %>% ungroup() %>% 
-  filter(sector != "Labor_Total") %>% 
-  mutate(sector = gsub("Labor_Ag", "AG", sector ),
-         sector = gsub("Labor_Materials", "MA", sector),
-         input = "labor") %>% 
-  select(-variable) %>% 
-  bind_rows(R2A.10 %>% group_by(scenario, year, region) %>% 
-              summarise(value = sum(value, na.rm = T)) %>% mutate(sector = "AG", input = "land")) %>% 
-  bind_rows(R2K %>% gather(sector, value, R2K_AG:R2K_EN) %>% 
-              filter(year >= 2015) %>% 
-              left_join(Regmapping %>% select(region, REG10_main), by = "region") %>% 
-              group_by(scenario, year, region = REG10_main, sector) %>%  
-              summarise(value = sum(value, na.rm = T)) %>% 
-              mutate(sector = gsub("R2K_", "", sector), input = "capital")) ->
-  level.GVA.10
-
-level.GVA.10 %>% 
-  spread(input, value) %>% 
-  mutate(KL = capital / labor) %>% 
-  filter(sector != "EN") %>% 
-  filter(scenario == "CL_LS") %>% 
-  SCE_NAME() %>% 
-  mutate(region = factor(region, levels = reg_order)) %>% 
-  ggplot() +
-  geom_line(aes(x = year, y = KL, color = sector), linewidth = 0.8) +
-  facet_wrap(~ region, ncol = 5) +
-  labs(x = "", y = "index", title = "Return to Capital vs. Return to Labor: Combined_LS") +
-  theme_bw() + themeds 
-
-
-PluckBind("SAM_NA") %>% 
-  filter(Account %in% c("GDP", "ag-food-service-value")) %>% 
-  filter(year >= 2015) %>% 
-  left_join_error_no_match(Regmapping %>% select(region, REG10_main)) %>% 
-  group_by(scenario, year, region =REG10_main, Account) %>% 
-  summarise(value = sum(value, na.rm = T)) %>% 
-  spread(Account, value) %>% 
-  mutate(food_exp_share = 100 *`ag-food-service-value` / GDP) %>% 
-  group_by(region, year) %>% 
-  mutate(delta_share = food_exp_share - food_exp_share[scenario == "Ref"]) %>% 
-  SCE_NAME() %>% View()
-mutate(region = factor(region, levels = reg_order)) %>% 
-  ggplot() +
-  geom_line(aes(x = year, y = delta_share, color = scenario), linewidth = 0.8) +
-  facet_grid(~ region) +
-  scale_x_continuous(breaks = c(2025, 2050, 2075, 2100)) +
-  scale_color_manual(values = scenario_colors) +
-  labs(x = "", y = "%", title = "Changes in food expenditure share of GDP") +
-  theme_bw() + themeds + 
-  theme(axis.text.x = element_text(angle = 30, hjust = 1))
-
-
-
-
-PluckBind("SAM_NA") %>% 
-  filter(Account %in% c("GDP", "ag-food-service-value")) %>% 
-  filter(year >= 2015) %>% 
-  left_join_error_no_match(Regmapping %>% select(region, REG10_main)) %>% 
-  group_by(scenario, year, region =REG10_main, Account) %>% 
-  summarise(value = sum(value, na.rm = T)) %>% 
-  spread(Account, value) %>% 
-  mutate(food_exp_share = 100 *`ag-food-service-value` / GDP) %>% 
-  group_by(region, year) %>% 
-  mutate(delta_share = food_exp_share - food_exp_share[scenario == "Ref"]) %>% 
-  SCE_NAME() %>% 
-  mutate(region = factor(region, levels = reg_order)) %>% 
-  ggplot() +
-  geom_line(aes(x = year, y = food_exp_share, color = scenario), linewidth = 0.8) +
-  facet_wrap(~ region, ncol = 5, scales = "free_y") +
-  scale_x_continuous(breaks = c(2025, 2050, 2075, 2100)) +
-  scale_color_manual(values = scenario_colors) +
-  labs(x = "", y = "%", title = "Food expenditure share of GDP") +
-  theme_bw() + themeds + 
-  theme(axis.text.x = element_text(angle = 30, hjust = 1))
-
-
-R2K %>% gather(sector, value, R2K_AG:R2K_EN) %>% 
-  filter(year >= 2015) %>% 
-  left_join(Regmapping %>% select(region, REG10_main), by = "region") %>% 
-  group_by(scenario, year, region = REG10_main, sector) %>%  
-  summarise(value = sum(value, na.rm = T)) %>% 
-  group_by(year, region, sector) %>% 
-  mutate(delta = value - value[scenario == "Ref"])  ->
-  R2K.10
-
-
-R2L.10 %>% filter(sector != "Labor_Total") %>% 
-  SCE_NAME() %>% 
-  mutate(region = factor(region, levels = reg_order)) %>% 
-  ggplot() +
-  geom_bar(aes(x = year, y = delta, fill = sector), 
-           stat = "identity", position = "stack") +
-  # facet_wrap(~ region, ncol = 5, scales = "free_y") +
-  geom_errorbar(data = R2L.10 %>% filter(sector != "Labor_Total") %>% SCE_NAME() %>% 
-                  mutate(region = factor(region, levels = reg_order)) %>% 
-                  group_by(scenario, year, region) %>% 
-                  summarise(delta = sum(delta, na.rm = T)),
-                aes(x = year, ymin = delta, ymax = delta), linewidth = 0.8) +
-  facet_wrap(~ region, ncol = 5) +
-  labs(x = "", y = "change relative to Ref (million 1990$)", title = "Return to labor") +
-  theme_bw() + themeds + 
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position = "bottom")
-
-# metrics vs. income per capita ----
-
-# obtain income per capita
-
-PluckBind("SAM_NA") %>%  
-  filter(Account == "gdp-per-capita") %>% 
-  select(scenario, region, year, Units, income = value) ->
-  df.income
-
-## ag labor share ----
-
-PluckBind("LaborSupplyAll") %>% 
-  filter(scenario == "Ref") %>% 
-  mutate(sector = "Labor_Total",
-         sector = ifelse(grepl("Labor_Ag", market), "Labor_Ag", sector),
-         sector = ifelse(grepl("Labor_Materials", market), "Labor_Materials", sector),
-         region = gsub("Labor_Ag", "", market),
-         region = gsub("Labor_Materials", "", region),
-         region = gsub("Labor_Total", "", region)) %>%
-  select(scenario, region, Units, year, value, sector) %>% 
-  mutate(sector = gsub("Labor_", "", sector)) %>% 
-  spread(sector, value) %>% 
-  mutate(share = Ag / Total) %>% 
-  select(scenario, region, year, share) ->
-  df.AgLaborShare
-
-## capital intensity ----
-
-
-## capital/labor ratio
-PluckBind("LaborSupplyAll") %>% 
-  filter(scenario == "Ref") %>% 
-  mutate(sector = "Labor_Total",
-         sector = ifelse(grepl("Labor_Ag", market), "Labor_Ag", sector),
-         sector = ifelse(grepl("Labor_Materials", market), "Labor_Materials", sector),
-         region = gsub("Labor_Ag", "", market),
-         region = gsub("Labor_Materials", "", region),
-         region = gsub("Labor_Total", "", region)) %>%
-  select(scenario, region, Units, year, value, sector) %>% 
-  filter(sector == "Labor_Ag") ->
-  df.AgL.ref
-
-PluckBind("AgCapitalDemand") %>% 
-  filter(scenario == "Ref") %>% 
-  select(scenario, region, year, AgK = value) %>% # billion 1975$
-  left_join_error_no_match(df.AgL.ref %>% select(scenario, region, year, AgL = value), # million people
-                           by = c("scenario", "region", "year")) %>% 
-  mutate(K_L = AgK / AgL) %>% # bil 1975$ / mil people = thousand 1975$ per labor
-  select(scenario, region, year, K_L) -> 
-  df.AgCapitalLaborRatio
-
-## biophysical impact ----
-
-## summary ----
-df.AgCapitalLaborRatio %>% 
-  left_join_error_no_match(df.AgLaborShare, by = c("scenario", "region", "year")) %>% 
-  left_join_error_no_match(df.income %>% filter(scenario == "Ref"), by = c("scenario", "region", "year")) %>%
-  gather(metric, value, K_L:share) %>% 
-  left_join_error_no_match(Regmapping %>% select(region, REG10_main), by = "region") %>% 
-  mutate(REG10_main = factor(REG10_main, levels = reg_order)) ->
-  df.income.summary
-
-
-df.income.summary %>% filter(metric == "share") %>% 
-  filter(income > 0) %>% mutate(value = 100*value) %>% 
-  filter(year <= 2015) -> data.share   
-
-global_share_model <- lm(value ~ income, data = data.share)
-slope_share <- coef(global_share_model)[2]
-intercept_share <- coef(global_share_model)[1]
-
-global_share_quadratic <- lm(value ~ income + I(income^2), data = data.share)
-x_seq <- seq(min(data.share$income), max(data.share$income), length.out = 200)
-pred_df <- data.frame(income = x_seq)
-pred_df$y <- predict(global_share_quadratic, newdata = pred_df)
-
-global_share_cubic <- lm(value ~ income + I(income^2) + I(income^3), data = data.share)
-x_seq <- seq(min(data.share$income), max(data.share$income), length.out = 200)
-pred_df2 <- data.frame(income = x_seq)
-pred_df2$y <- predict(global_share_cubic, newdata = pred_df2)
-
-
-loess_fit <- loess(value ~ income, data = data.share)
-x_seq <- seq(min(data.share$income), max(data.share$income), length.out = 200)
-pred_df3 <- data.frame(income = x_seq)
-pred_df3$y <- predict(loess_fit, newdata = pred_df3)
-
-df.income.summary %>% 
-  ggplot() +
-  geom_point(aes(x = income, y = value, color = REG10_main)) +
-  facet_wrap(~ metric, scales = "free_y") +
-  scale_color_brewer(palette = "RdYlGn") +
-  theme_bw()
-
-df.income.summary %>% 
-  filter(metric == "share") %>% 
-  ggplot() +
-  geom_point(aes(x = income, y = value* 100, color = REG10_main)) +
-  geom_abline(slope = slope_share, intercept = intercept_share, color = "black", linewidth = 0.8, linetype = "dashed") +
-  # geom_line(data = pred_df, aes(x = income, y = y), color = "red", linetype = "dashed", inherit.aes = FALSE) +
-  # geom_line(data = pred_df2, aes(x = income, y = y), color = "blue", linetype = "dashed", inherit.aes = FALSE) +
-  geom_line(data = pred_df3, aes(x = income, y = y), color = "purple", linewidth = 0.8, linetype = "dashed", inherit.aes = FALSE) +
-  facet_wrap(~ region, ncol = 8) +
-  scale_color_brewer(palette = "RdYlGn") +
-  labs(x = "GDP per capita (thous 1990$ per capita)", y = "%", 
-       title = "Agricultural labor share\n(Black dashed line denote historical global linear trend, purple dashed line denotes historical global loess trend)") +
-  theme_bw()
-
-
-df.income.summary %>% filter(metric == "K_L") %>% 
-  filter(income > 0) %>% mutate(value = 100*value) %>% 
-  filter(year <= 2015) -> data.ratio  
-
-global_share_model <- lm(value ~ income, data = data.ratio)
-slope_share <- coef(global_share_model)[2]
-intercept_share <- coef(global_share_model)[1]
-
-global_share_quadratic <- lm(value ~ income + I(income^2), data = data.ratio)
-x_seq <- seq(min(data.share$income), max(data.share$income), length.out = 200)
-pred_df <- data.frame(income = x_seq)
-pred_df$y <- predict(global_share_quadratic, newdata = pred_df)
-
-global_share_cubic <- lm(value ~ income + I(income^2) + I(income^3), data = data.ratio)
-x_seq <- seq(min(data.share$income), max(data.share$income), length.out = 200)
-pred_df2 <- data.frame(income = x_seq)
-pred_df2$y <- predict(global_share_cubic, newdata = pred_df2)
-
-
-loess_fit <- loess(value ~ income, data = data.ratio)
-x_seq <- seq(min(data.share$income), max(data.share$income), length.out = 200)
-pred_df3 <- data.frame(income = x_seq)
-pred_df3$y <- predict(loess_fit, newdata = pred_df3)
-
-
-df.income.summary %>% 
-  filter(metric == "K_L") %>% 
-  ggplot() +
-  geom_point(aes(x = income, y = value, color = REG10_main)) +
-  facet_wrap(~ region, ncol = 8) +
-  scale_color_brewer(palette = "RdYlGn") +
-  labs(x = "GDP per capita (thous 1990$ per capita)",
-       y = "thousand 1975$ per labor",
-       title = "Capital-Labor Ratio in Agriculture") +
-  theme_bw()
-
-
-df.income.summary %>% 
-  filter(metric == "K_L") %>% 
-  ggplot() +
-  geom_point(aes(x = income, y = value* 100, color = REG10_main)) +
-  geom_abline(slope = slope_share, intercept = intercept_share, color = "black", linewidth = 0.8, linetype = "dashed") +
-  # geom_line(data = pred_df, aes(x = income, y = y), color = "red", linetype = "dashed", inherit.aes = FALSE) +
-  # geom_line(data = pred_df2, aes(x = income, y = y), color = "blue", linetype = "dashed", inherit.aes = FALSE) +
-  geom_line(data = pred_df3, aes(x = income, y = y), color = "purple", linewidth = 0.8, linetype = "dashed", inherit.aes = FALSE) +
-  facet_wrap(~ region, ncol = 8) +
-  scale_color_brewer(palette = "RdYlGn") +
-  labs(x = "GDP per capita (thous 1990$ per capita)", y = "thousand 1975$ per labor", 
-       title = "Agricultural Capital-Labor Ratio\n(Black dashed line denote historical global linear trend, purple dashed line denotes historical global loess trend)") +
-  theme_bw()
+# PluckBind("WaterWWSec") %>% 
+#   filter(sector %in% unique(MapAgCOMM$AgCOMM)) %>% # filter out ag water use: irrigation water
+#   group_by(scenario, Units, year) %>% 
+#   summarise(value = sum(value, na.rm = T)) %>% 
+#   group_by( year) %>% 
+#   mutate(index = value / value[scenario == "Ref"],
+#          delta = value - value[scenario == "Ref"]) ->
+#   df.water.glb
+# 
+# PluckBind("WaterWWSec") %>% 
+#   filter(sector %in% unique(MapAgCOMM$AgCOMM)) %>% 
+#   group_by(scenario, region, Units, year) %>% 
+#   summarise(value = sum(value, na.rm = T)) %>% 
+#   group_by(region, year) %>% 
+#   mutate(index = value / value[scenario == "Ref"],
+#          delta = value - value[scenario == "Ref"]) ->
+#   df.water
+# 
+# df.water %>% 
+#   SCE_NAME() %>% 
+#   ggplot() +
+#   geom_line(aes(x = year, y = index, color = scenario), linewidth = 0.8) +
+#   facet_wrap(~ region, ncol = 8) +
+#   scale_color_manual(values = scenario_colors) +
+#   labs(x = "", y = "Irrigation water changes relative to Ref (Ref = 1)") +
+#   theme_bw() + themeds 
+# 
+# %>% %>% left_join(df.water %>% 
+#                     filter(year == 2100, scenario == "CL_LS") %>% 
+#                     select(reg_nm = region, index, delta),
+#                   by = "reg_nm") %>%  
+#   ggplot() +
+#   geom_sf(aes(fill = 100*index-100)) +
+#   # scale_fill_viridis() +
+#   scale_fill_gradient2(low = "blue", high = "red", midpoint = 0) +
+#   coord_sf(datum = NA) + 
+#   labs(title = "% change of irrigated water withdrawal relative to Ref (Ref = 0)") +
+#   theme_bw() + theme0 + theme1 +
+#   theme(legend.position="right",
+#         plot.title = element_text(hjust = 0.5,
+#                                   color = "Gray40",
+#                                   size = 16,
+#                                   face = "bold"),
+#         plot.subtitle = element_text(color = "blue"),
+#         plot.caption = element_text(color = "Gray60"))  +
+#   guides(fill = guide_colorbar(title = "%",
+#                                title.position = "top",
+#                                title.theme = element_text(size = 10,
+#                                                           face = "bold",
+#                                                           colour = "black",
+#                                                           angle = 0)))
+# 
+# 
+# REG %>% left_join(df.water %>% 
+#                     filter(year == 2100, scenario == "CL_LS") %>% 
+#                     select(reg_nm = region, index, delta),
+#                   by = "reg_nm") %>%  
+#   ggplot() +
+#   geom_sf(aes(fill = delta)) +
+#   # scale_fill_viridis() +
+#   scale_fill_gradient2(low = "blue", high = "red", midpoint = 0) +
+#   coord_sf(datum = NA) + 
+#   labs(title = "Level change of irrigated water withdrawal relative to Ref (Ref = 0)") +
+#   theme_bw() + theme0 + theme1 +
+#   theme(legend.position="right",
+#         plot.title = element_text(hjust = 0.5,
+#                                   color = "Gray40",
+#                                   size = 16,
+#                                   face = "bold"),
+#         plot.subtitle = element_text(color = "blue"),
+#         plot.caption = element_text(color = "Gray60"))  +
+#   guides(fill = guide_colorbar(title = "km^3",
+#                                title.position = "top",
+#                                title.theme = element_text(size = 10,
+#                                                           face = "bold",
+#                                                           colour = "black",
+#                                                           angle = 0)))
+# 
+# PluckBind("WaterWWSec") %>% 
+#   filter(sector %in% unique(MapAgCOMM$AgCOMM)) %>% 
+#   group_by(scenario, region, sector, Units, year) %>% 
+#   summarise(value = sum(value, na.rm = T)) %>% 
+#   filter(year >= 2015) %>% spread(scenario, value) %>% 
+#   filter(!is.na(Ref)) %>% 
+#   group_by(region, sector, year) %>% 
+#   mutate(index = CL_LS / Ref,
+#          delta = CL_LS - Ref) ->
+#   df.water.sec
+# 
+# 
+# df.water.sec %>% 
+#   select(region, sector, Units, year, index, delta) %>% 
+#   filter(year == 2100) %>% 
+#   gather(variable, value, index:delta) %>% 
+#   group_by(sector, variable, year) %>% 
+#   summarise(y05 = quantile(value, 0.05, na.rm = T),
+#             y25 = quantile(value, 0.25, na.rm = T),
+#             y50 = quantile(value, 0.50, na.rm = T),
+#             y75 = quantile(value, 0.75, na.rm = T),
+#             y95 = quantile(value, 0.95, na.rm = T),
+#             mean = mean(value, na.rm = T)) ->
+#   box.water.sec
+# 
+# box.water.sec %>% 
+#   filter(variable == "index") %>% 
+#   ggplot() +
+#   geom_hline(yintercept = 1, linetype = "dotted") +
+#   geom_boxplot(aes(x = sector, lower = y25, upper = y75, middle = y50, 
+#                    ymin = y05, ymax = y95, alpha = year), stat = "identity") +
+#   geom_errorbar(aes(x = sector, ymin = mean, ymax = mean), color = "red") +
+#   labs(x = "", y = "index", 
+#        title = "Water withdrawal changes relative to Ref (Ref = 1)\nCombined: LS, 2100") +
+#   theme_bw() + themeds 
+# 
+# 
+# box.water.sec %>% 
+#   filter(variable == "delta") %>% 
+#   ggplot() +
+#   geom_hline(yintercept = 1, linetype = "dotted") +
+#   geom_boxplot(aes(x = sector, lower = y25, upper = y75, middle = y50, 
+#                    ymin = y05, ymax = y95, alpha = year), stat = "identity") +
+#   geom_errorbar(aes(x = sector, ymin = mean, ymax = mean), color = "red") +
+#   labs(x = "", y = "km^3", 
+#        title = "Water withdrawal changes relative to Ref (Ref = 0)\nCombined: LS, 2100") +
+#   theme_bw() + themeds 
+# 
+# 
+# 
+# 
+# 
+# # check additional results ----
+# PSUA %>% 
+#   na.omit() %>% 
+#   left_join_error_no_match(
+#     MapAgCOMM %>% select(sector = AgCOMM, AgCOMM5) %>% 
+#       mutate(sector = tolower(sector)), by = "sector") %>% 
+#   Agg_reg(element, AgCOMM5, region) %>% 
+#   rename(sector = AgCOMM5) %>% 
+#   mutate(element = gsub("Supply: ", "", element),
+#          element = gsub("Demand: ", "", element)) %>% 
+#   filter(element %in% c("Export", "Import")) %>% 
+#   spread(element, value) %>% 
+#   mutate(value = Import + Export,
+#          element = "Net import (Mt)") %>% 
+#   select(-Export, -Import)->
+#   check
+# 
+# check %>% 
+#   group_by(element, sector, region, year) %>% 
+#   mutate(delta = value - value[scenario == "Ref"]) %>% 
+#   filter(scenario == "CL_LS") %>%  
+#   SCE_NAME() %>% 
+#   ggplot() +
+#   geom_bar(aes(x = year, y = -delta, fill = sector),
+#            stat = "identity", position = "stack") +
+#   facet_wrap(~ region, ncol = 8) +
+#   labs(x = "", y = "Mt", title = "Changes in net export relative to Ref (Ref = 0): Combined_LS") +
+#   theme_bw() + themeds 
+# 
+# 
+# 
+# PSUA %>% 
+#   na.omit() %>% 
+#   left_join_error_no_match(
+#     MapAgCOMM %>% select(sector = AgCOMM, AgCOMM5) %>% 
+#       mutate(sector = tolower(sector)), by = "sector") %>% 
+#   left_join_error_no_match(Regmapping) %>% 
+#   Agg_reg(element, AgCOMM5, REG10_main) %>% 
+#   rename(sector = AgCOMM5, region = REG10_main) %>% 
+#   mutate(element = gsub("Supply: ", "", element),
+#          element = gsub("Demand: ", "", element)) %>% 
+#   filter(element %in% c("Export", "Import")) %>% 
+#   spread(element, value) %>% 
+#   mutate(value = Import + Export,
+#          element = "Net import (Mt)") %>% 
+#   select(-Export, -Import)->
+#   Key1.A.TRADE.reg10
+# 
+# Key1.A.TRADE.reg10 %>% 
+#   group_by(element, sector, region, year) %>% 
+#   mutate(delta = value - value[scenario == "Ref"]) %>% 
+#   filter(scenario == "CL_LS") %>%  
+#   SCE_NAME() %>% 
+#   mutate(region = factor(region, levels = reg_order)) %>% 
+#   ggplot() +
+#   geom_bar(aes(x = year, y = -delta, fill = sector),
+#            stat = "identity", position = "stack") +
+#   facet_wrap(~ region, ncol = 5) +
+#   labs(x = "", y = "Mt", title = "Changes in net export relative to Ref (Ref = 0): Combined_LS") +
+#   theme_bw() + themeds
+# 
+# 
+# ag_en_exports_value %>% rename(Mt = exports) %>% mutate(variable = "export") %>% 
+#   bind_rows(ag_en_imports_value %>% rename(Mt = imports) %>% mutate(variable = "import")) %>% 
+#   rename(sector = commodity) %>% 
+#   left_join(
+#     MapAgCOMM %>% select(sector = AgCOMM, AgCOMM5) %>%
+#       mutate(sector = tolower(sector)), by = "sector") %>%
+#   na.omit() %>% 
+#   select(scenario, sector,  year, variable, value, price, Mt) %>% 
+#   group_by(scenario, sector,  year, variable) %>% 
+#   summarise(value = sum(value, na.rm = T),
+#             Mt = sum(Mt, na.rm = T),
+#             price = value / Mt) %>% 
+#   group_by(sector, year, variable) %>% 
+#   mutate(index_value = value / value[scenario == "Ref"],
+#          index_Q = Mt / Mt[scenario == "Ref"],
+#          index_P = price / price[scenario == "Ref"]) %>% 
+#   filter(year >= 2015) ->
+#   index_trade_glb_sec
+# 
+# index_trade_glb_sec %>% 
+#   filter(scenario == "CL_LS") %>%  
+#   ungroup() %>% 
+#   SCE_NAME() %>% 
+#   select(scenario, sector, year, variable, index_value, index_Q, index_P) %>% 
+#   gather(index, value, index_value:index_P) %>% 
+#   # filter(index == "index_P") %>% 
+#   # mutate(region = factor(region, levels = reg_order)) %>% 
+#   ggplot() +
+#   geom_hline(yintercept = 1, linewidth = 0.8, color = "grey") +
+#   geom_line(aes(x = year, y = value, color = index, linetype = variable)) +
+#   facet_wrap(~ sector, ncol = 10) +
+#   labs(x = "", y = "index", title = "Changes in trade metric relative to Ref (Ref = 0): Combined_LS, Other Crops") +
+#   theme_bw() + themeds
+# 
+# ag_en_exports_value %>% rename(Mt = exports) %>% mutate(variable = "export") %>% 
+#   bind_rows(ag_en_imports_value %>% rename(Mt = imports) %>% mutate(variable = "import")) %>% 
+#   rename(sector = commodity) %>% 
+#   left_join(
+#     MapAgCOMM %>% select(sector = AgCOMM, AgCOMM5) %>%
+#       mutate(sector = tolower(sector)), by = "sector") %>%
+#   na.omit() %>% 
+#   select(scenario, region, sector = AgCOMM5, year, variable, value, price, Mt) %>% 
+#   group_by(scenario, region, sector, year, variable) %>% 
+#   summarise(value = sum(value, na.rm = T),
+#             Mt = sum(Mt, na.rm = T),
+#             price = value / Mt) %>% 
+#   group_by(region, sector, year, variable) %>% 
+#   mutate(index_value = value / value[scenario == "Ref"],
+#          index_Q = Mt / Mt[scenario == "Ref"],
+#          index_P = price / price[scenario == "Ref"]) %>% 
+#   filter(year >= 2015) ->
+#   index_trade
+# 
+# index_trade %>% 
+#   filter(scenario == "CL_LS") %>%  
+#   filter(sector == "Other crops") %>%  
+#   ungroup() %>% 
+#   SCE_NAME() %>% 
+#   select(scenario, region, sector, year, variable, index_value, index_Q, index_P) %>% 
+#   gather(index, value, index_value:index_P) %>% 
+#   # filter(index == "index_P") %>% 
+#   # mutate(region = factor(region, levels = reg_order)) %>% 
+#   ggplot() +
+#   geom_line(aes(x = year, y = value, color = index, linetype = variable)) +
+#   facet_wrap(~ region, ncol = 8) +
+#   labs(x = "", y = "index", title = "Changes in trade metric relative to Ref (Ref = 0): Combined_LS, Other Crops") +
+#   theme_bw() + themeds
+# 
+# 
+# 
+# 
+# 
+# ag_en_exports_value %>% rename(Mt = exports) %>% mutate(variable = "export") %>% 
+#   bind_rows(ag_en_imports_value %>% rename(Mt = imports) %>% mutate(variable = "import")) %>% 
+#   rename(sector = commodity) %>% 
+#   left_join(
+#     MapAgCOMM %>% select(sector = AgCOMM, AgCOMM5) %>% 
+#       mutate(sector = tolower(sector)), by = "sector") %>% 
+#   left_join_error_no_match(Regmapping %>% select(region, REG10_main)) %>% 
+#   na.omit() %>% 
+#   select(scenario, region = REG10_main, sector = AgCOMM5, year, variable, value, price, Mt) %>% 
+#   group_by(scenario, region, sector, year, variable) %>% 
+#   summarise(value = sum(value, na.rm = T),
+#             Mt = sum(Mt, na.rm = T),
+#             price = value / Mt) %>% 
+#   group_by(region, sector, year, variable) %>% 
+#   mutate(index_value = value / value[scenario == "Ref"],
+#          index_Q = Mt / Mt[scenario == "Ref"],
+#          index_P = price / price[scenario == "Ref"]) %>% 
+#   filter(year >= 2015) ->
+#   index_trade_10
+# 
+# index_trade_10 %>% 
+#   select(scenario, region, sector, year, variable, value) %>% 
+#   spread(variable, value) %>% 
+#   mutate(NX_V = export - import) %>% 
+#   group_by(region, sector, year) %>% 
+#   mutate(index_NX_V = NX_V / NX_V[scenario == "Ref"]) ->
+#   index_NXV
+# 
+# index_trade_10 %>% 
+#   filter(scenario == "CL_LS") %>%  
+#   filter(sector == "Other crops") %>% 
+#   SCE_NAME() %>% 
+#   select(scenario, region, sector, year, variable, index_value, index_Q, index_P) %>% 
+#   gather(index, value, index_value:index_P) %>% 
+#   mutate(region = factor(region, levels = reg_order)) %>%
+#   ggplot() +
+#   geom_line(aes(x = year, y = value, color = index, linetype = variable), linewidth = 0.8) +
+#   facet_wrap(~ region, ncol = 5) +
+#   labs(x = "", y = "index", title = "Changes in trade metric relative to Ref (Ref = 0): Combined_LS, Other Crops") +
+#   theme_bw() + themeds
+# 
+# 
+# AgElement_AreaYieldPrice %>% 
+#   mutate(group = ifelse(sector %in% c("beef", "dairy","pork","poultry","sheepgoat" ), "animal", sector),
+#          group = ifelse(group %in% c("corn", "rice", "soybean", "wheat", "animal", "sugarcrop"), group, "others")) %>% 
+#   filter(group != "animal") %>% 
+#   select(scenario, region, group, year, element, value) %>% 
+#   filter(element %in% c("Area", "Production", "Revenue")) %>% 
+#   group_by(scenario, region, year, element) %>% 
+#   summarise(value = sum(value, na.rm = T)) %>% 
+#   spread(element, value) %>% 
+#   mutate(Yield = Production / Area,
+#          Price = Revenue / Production) %>%  
+#   gather(account, value, Area:Price) %>% 
+#   mutate(group = 'AG') %>% 
+#   bind_rows(AYPP_32) ->
+#   AGG_AYPP_32
+# 
+# 
+# AgElement_AreaYieldPrice %>% 
+#   mutate(group = ifelse(sector %in% c("beef", "dairy","pork","poultry","sheepgoat" ), "animal", sector),
+#          group = ifelse(group %in% c("corn", "rice", "soybean", "wheat", "animal", "sugarcrop"), group, "others")) %>% 
+#   filter(group != "animal") %>% 
+#   select(scenario, region, group, year, element, value) %>% 
+#   left_join_error_no_match(Regmapping %>% select(region, REG10_main)) %>% 
+#   filter(element %in% c("Area", "Production", "Revenue")) %>% 
+#   group_by(scenario, region = REG10_main, group, year, element) %>% 
+#   summarise(value = sum(value, na.rm = T)) %>% 
+#   spread(element, value) %>% 
+#   mutate(Yield = Production / Area,
+#          Price = Revenue / Production) %>% 
+#   gather(account, value, Area:Price) ->
+#   AYPP_10
+# 
+# AgElement_AreaYieldPrice %>% 
+#   mutate(group = ifelse(sector %in% c("beef", "dairy","pork","poultry","sheepgoat" ), "animal", sector),
+#          group = ifelse(group %in% c("corn", "rice", "soybean", "wheat", "animal", "sugarcrop"), group, "others")) %>% 
+#   filter(group != "animal") %>% 
+#   select(scenario, region, group, year, element, value) %>% 
+#   left_join_error_no_match(Regmapping %>% select(region, REG10_main)) %>% 
+#   filter(element %in% c("Area", "Production", "Revenue")) %>% 
+#   group_by(scenario, region = REG10_main, year, element) %>% 
+#   summarise(value = sum(value, na.rm = T)) %>% 
+#   spread(element, value) %>% 
+#   mutate(Yield = Production / Area,
+#          Price = Revenue / Production) %>% 
+#   gather(account, value, Area:Price) %>% 
+#   mutate(group = 'AG') %>% 
+#   bind_rows(AYPP_10) ->
+#   AGG_AYPP_10
+# 
+# 
+# df.KLA.ag %>% spread(input, value) %>% 
+#   mutate(LK_Ag = Labor_Ag / Capital_Ag) %>% 
+#   gather(input, value, Capital_Ag:LK_Ag) %>% 
+#   # filter(scenario == "CL_LS") %>%
+#   SCE_NAME() %>% 
+#   mutate(region = factor(region, levels = reg_order)) %>% 
+#   filter(input == "LK_Ag", year >= 2015) %>% 
+#   ggplot() +
+#   geom_line(aes(x = year, y = 1/value, color = scenario),linewidth = 0.8) +
+#   facet_wrap(~ region, ncol = 5, scales = "free_y") +
+#   scale_color_manual(values = scenario_colors) +
+#   labs(x = "", y = "index", title = "Capital-labor ratio in Ag") +
+#   theme_bw() + themeds 
+# 
+# 
+# plot.wage.10 %>% 
+#   filter(variable == "VAL") %>% ungroup() %>% 
+#   filter(sector != "Labor_Total") %>% 
+#   mutate(sector = gsub("Labor_Ag", "AG", sector ),
+#          sector = gsub("Labor_Materials", "MA", sector),
+#          input = "labor") %>% 
+#   select(-variable) %>% 
+#   bind_rows(R2A.10 %>% group_by(scenario, year, region) %>% 
+#               summarise(value = sum(value, na.rm = T)) %>% mutate(sector = "AG", input = "land")) %>% 
+#   bind_rows(R2K %>% gather(sector, value, R2K_AG:R2K_EN) %>% 
+#               filter(year >= 2015) %>% 
+#               left_join(Regmapping %>% select(region, REG10_main), by = "region") %>% 
+#               group_by(scenario, year, region = REG10_main, sector) %>%  
+#               summarise(value = sum(value, na.rm = T)) %>% 
+#               mutate(sector = gsub("R2K_", "", sector), input = "capital")) ->
+#   level.GVA.10
+# 
+# level.GVA.10 %>% 
+#   spread(input, value) %>% 
+#   mutate(KL = capital / labor) %>% 
+#   filter(sector != "EN") %>% 
+#   filter(scenario == "CL_LS") %>% 
+#   SCE_NAME() %>% 
+#   mutate(region = factor(region, levels = reg_order)) %>% 
+#   ggplot() +
+#   geom_line(aes(x = year, y = KL, color = sector), linewidth = 0.8) +
+#   facet_wrap(~ region, ncol = 5) +
+#   labs(x = "", y = "index", title = "Return to Capital vs. Return to Labor: Combined_LS") +
+#   theme_bw() + themeds 
+# 
+# 
+# PluckBind("SAM_NA") %>% 
+#   filter(Account %in% c("GDP", "ag-food-service-value")) %>% 
+#   filter(year >= 2015) %>% 
+#   left_join_error_no_match(Regmapping %>% select(region, REG10_main)) %>% 
+#   group_by(scenario, year, region =REG10_main, Account) %>% 
+#   summarise(value = sum(value, na.rm = T)) %>% 
+#   spread(Account, value) %>% 
+#   mutate(food_exp_share = 100 *`ag-food-service-value` / GDP) %>% 
+#   group_by(region, year) %>% 
+#   mutate(delta_share = food_exp_share - food_exp_share[scenario == "Ref"]) %>% 
+#   SCE_NAME() %>% View()
+# mutate(region = factor(region, levels = reg_order)) %>% 
+#   ggplot() +
+#   geom_line(aes(x = year, y = delta_share, color = scenario), linewidth = 0.8) +
+#   facet_grid(~ region) +
+#   scale_x_continuous(breaks = c(2025, 2050, 2075, 2100)) +
+#   scale_color_manual(values = scenario_colors) +
+#   labs(x = "", y = "%", title = "Changes in food expenditure share of GDP") +
+#   theme_bw() + themeds + 
+#   theme(axis.text.x = element_text(angle = 30, hjust = 1))
+# 
+# 
+# 
+# 
+# PluckBind("SAM_NA") %>% 
+#   filter(Account %in% c("GDP", "ag-food-service-value")) %>% 
+#   filter(year >= 2015) %>% 
+#   left_join_error_no_match(Regmapping %>% select(region, REG10_main)) %>% 
+#   group_by(scenario, year, region =REG10_main, Account) %>% 
+#   summarise(value = sum(value, na.rm = T)) %>% 
+#   spread(Account, value) %>% 
+#   mutate(food_exp_share = 100 *`ag-food-service-value` / GDP) %>% 
+#   group_by(region, year) %>% 
+#   mutate(delta_share = food_exp_share - food_exp_share[scenario == "Ref"]) %>% 
+#   SCE_NAME() %>% 
+#   mutate(region = factor(region, levels = reg_order)) %>% 
+#   ggplot() +
+#   geom_line(aes(x = year, y = food_exp_share, color = scenario), linewidth = 0.8) +
+#   facet_wrap(~ region, ncol = 5, scales = "free_y") +
+#   scale_x_continuous(breaks = c(2025, 2050, 2075, 2100)) +
+#   scale_color_manual(values = scenario_colors) +
+#   labs(x = "", y = "%", title = "Food expenditure share of GDP") +
+#   theme_bw() + themeds + 
+#   theme(axis.text.x = element_text(angle = 30, hjust = 1))
+# 
+# 
+# R2K %>% gather(sector, value, R2K_AG:R2K_EN) %>% 
+#   filter(year >= 2015) %>% 
+#   left_join(Regmapping %>% select(region, REG10_main), by = "region") %>% 
+#   group_by(scenario, year, region = REG10_main, sector) %>%  
+#   summarise(value = sum(value, na.rm = T)) %>% 
+#   group_by(year, region, sector) %>% 
+#   mutate(delta = value - value[scenario == "Ref"])  ->
+#   R2K.10
+# 
+# 
+# R2L.10 %>% filter(sector != "Labor_Total") %>% 
+#   SCE_NAME() %>% 
+#   mutate(region = factor(region, levels = reg_order)) %>% 
+#   ggplot() +
+#   geom_bar(aes(x = year, y = delta, fill = sector), 
+#            stat = "identity", position = "stack") +
+#   # facet_wrap(~ region, ncol = 5, scales = "free_y") +
+#   geom_errorbar(data = R2L.10 %>% filter(sector != "Labor_Total") %>% SCE_NAME() %>% 
+#                   mutate(region = factor(region, levels = reg_order)) %>% 
+#                   group_by(scenario, year, region) %>% 
+#                   summarise(delta = sum(delta, na.rm = T)),
+#                 aes(x = year, ymin = delta, ymax = delta), linewidth = 0.8) +
+#   facet_wrap(~ region, ncol = 5) +
+#   labs(x = "", y = "change relative to Ref (million 1990$)", title = "Return to labor") +
+#   theme_bw() + themeds + 
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1),
+#         legend.position = "bottom")
+# 
+# # metrics vs. income per capita ----
+# 
+# # obtain income per capita
+# 
+# PluckBind("SAM_NA") %>%  
+#   filter(Account == "gdp-per-capita") %>% 
+#   select(scenario, region, year, Units, income = value) ->
+#   df.income
+# 
+# ## ag labor share ----
+# 
+# PluckBind("LaborSupplyAll") %>% 
+#   filter(scenario == "Ref") %>% 
+#   mutate(sector = "Labor_Total",
+#          sector = ifelse(grepl("Labor_Ag", market), "Labor_Ag", sector),
+#          sector = ifelse(grepl("Labor_Materials", market), "Labor_Materials", sector),
+#          region = gsub("Labor_Ag", "", market),
+#          region = gsub("Labor_Materials", "", region),
+#          region = gsub("Labor_Total", "", region)) %>%
+#   select(scenario, region, Units, year, value, sector) %>% 
+#   mutate(sector = gsub("Labor_", "", sector)) %>% 
+#   spread(sector, value) %>% 
+#   mutate(share = Ag / Total) %>% 
+#   select(scenario, region, year, share) ->
+#   df.AgLaborShare
+# 
+# ## capital intensity ----
+# 
+# 
+# ## capital/labor ratio
+# PluckBind("LaborSupplyAll") %>% 
+#   filter(scenario == "Ref") %>% 
+#   mutate(sector = "Labor_Total",
+#          sector = ifelse(grepl("Labor_Ag", market), "Labor_Ag", sector),
+#          sector = ifelse(grepl("Labor_Materials", market), "Labor_Materials", sector),
+#          region = gsub("Labor_Ag", "", market),
+#          region = gsub("Labor_Materials", "", region),
+#          region = gsub("Labor_Total", "", region)) %>%
+#   select(scenario, region, Units, year, value, sector) %>% 
+#   filter(sector == "Labor_Ag") ->
+#   df.AgL.ref
+# 
+# PluckBind("AgCapitalDemand") %>% 
+#   filter(scenario == "Ref") %>% 
+#   select(scenario, region, year, AgK = value) %>% # billion 1975$
+#   left_join_error_no_match(df.AgL.ref %>% select(scenario, region, year, AgL = value), # million people
+#                            by = c("scenario", "region", "year")) %>% 
+#   mutate(K_L = AgK / AgL) %>% # bil 1975$ / mil people = thousand 1975$ per labor
+#   select(scenario, region, year, K_L) -> 
+#   df.AgCapitalLaborRatio
+# 
+# ## biophysical impact ----
+# 
+# ## summary ----
+# df.AgCapitalLaborRatio %>% 
+#   left_join_error_no_match(df.AgLaborShare, by = c("scenario", "region", "year")) %>% 
+#   left_join_error_no_match(df.income %>% filter(scenario == "Ref"), by = c("scenario", "region", "year")) %>%
+#   gather(metric, value, K_L:share) %>% 
+#   left_join_error_no_match(Regmapping %>% select(region, REG10_main), by = "region") %>% 
+#   mutate(REG10_main = factor(REG10_main, levels = reg_order)) ->
+#   df.income.summary
+# 
+# 
+# df.income.summary %>% filter(metric == "share") %>% 
+#   filter(income > 0) %>% mutate(value = 100*value) %>% 
+#   filter(year <= 2015) -> data.share   
+# 
+# global_share_model <- lm(value ~ income, data = data.share)
+# slope_share <- coef(global_share_model)[2]
+# intercept_share <- coef(global_share_model)[1]
+# 
+# global_share_quadratic <- lm(value ~ income + I(income^2), data = data.share)
+# x_seq <- seq(min(data.share$income), max(data.share$income), length.out = 200)
+# pred_df <- data.frame(income = x_seq)
+# pred_df$y <- predict(global_share_quadratic, newdata = pred_df)
+# 
+# global_share_cubic <- lm(value ~ income + I(income^2) + I(income^3), data = data.share)
+# x_seq <- seq(min(data.share$income), max(data.share$income), length.out = 200)
+# pred_df2 <- data.frame(income = x_seq)
+# pred_df2$y <- predict(global_share_cubic, newdata = pred_df2)
+# 
+# 
+# loess_fit <- loess(value ~ income, data = data.share)
+# x_seq <- seq(min(data.share$income), max(data.share$income), length.out = 200)
+# pred_df3 <- data.frame(income = x_seq)
+# pred_df3$y <- predict(loess_fit, newdata = pred_df3)
+# 
+# df.income.summary %>% 
+#   ggplot() +
+#   geom_point(aes(x = income, y = value, color = REG10_main)) +
+#   facet_wrap(~ metric, scales = "free_y") +
+#   scale_color_brewer(palette = "RdYlGn") +
+#   theme_bw()
+# 
+# df.income.summary %>% 
+#   filter(metric == "share") %>% 
+#   ggplot() +
+#   geom_point(aes(x = income, y = value* 100, color = REG10_main)) +
+#   geom_abline(slope = slope_share, intercept = intercept_share, color = "black", linewidth = 0.8, linetype = "dashed") +
+#   # geom_line(data = pred_df, aes(x = income, y = y), color = "red", linetype = "dashed", inherit.aes = FALSE) +
+#   # geom_line(data = pred_df2, aes(x = income, y = y), color = "blue", linetype = "dashed", inherit.aes = FALSE) +
+#   geom_line(data = pred_df3, aes(x = income, y = y), color = "purple", linewidth = 0.8, linetype = "dashed", inherit.aes = FALSE) +
+#   facet_wrap(~ region, ncol = 8) +
+#   scale_color_brewer(palette = "RdYlGn") +
+#   labs(x = "GDP per capita (thous 1990$ per capita)", y = "%", 
+#        title = "Agricultural labor share\n(Black dashed line denote historical global linear trend, purple dashed line denotes historical global loess trend)") +
+#   theme_bw()
+# 
+# 
+# df.income.summary %>% filter(metric == "K_L") %>% 
+#   filter(income > 0) %>% mutate(value = 100*value) %>% 
+#   filter(year <= 2015) -> data.ratio  
+# 
+# global_share_model <- lm(value ~ income, data = data.ratio)
+# slope_share <- coef(global_share_model)[2]
+# intercept_share <- coef(global_share_model)[1]
+# 
+# global_share_quadratic <- lm(value ~ income + I(income^2), data = data.ratio)
+# x_seq <- seq(min(data.share$income), max(data.share$income), length.out = 200)
+# pred_df <- data.frame(income = x_seq)
+# pred_df$y <- predict(global_share_quadratic, newdata = pred_df)
+# 
+# global_share_cubic <- lm(value ~ income + I(income^2) + I(income^3), data = data.ratio)
+# x_seq <- seq(min(data.share$income), max(data.share$income), length.out = 200)
+# pred_df2 <- data.frame(income = x_seq)
+# pred_df2$y <- predict(global_share_cubic, newdata = pred_df2)
+# 
+# 
+# loess_fit <- loess(value ~ income, data = data.ratio)
+# x_seq <- seq(min(data.share$income), max(data.share$income), length.out = 200)
+# pred_df3 <- data.frame(income = x_seq)
+# pred_df3$y <- predict(loess_fit, newdata = pred_df3)
+# 
+# 
+# df.income.summary %>% 
+#   filter(metric == "K_L") %>% 
+#   ggplot() +
+#   geom_point(aes(x = income, y = value, color = REG10_main)) +
+#   facet_wrap(~ region, ncol = 8) +
+#   scale_color_brewer(palette = "RdYlGn") +
+#   labs(x = "GDP per capita (thous 1990$ per capita)",
+#        y = "thousand 1975$ per labor",
+#        title = "Capital-Labor Ratio in Agriculture") +
+#   theme_bw()
+# 
+# 
+# df.income.summary %>% 
+#   filter(metric == "K_L") %>% 
+#   ggplot() +
+#   geom_point(aes(x = income, y = value* 100, color = REG10_main)) +
+#   geom_abline(slope = slope_share, intercept = intercept_share, color = "black", linewidth = 0.8, linetype = "dashed") +
+#   # geom_line(data = pred_df, aes(x = income, y = y), color = "red", linetype = "dashed", inherit.aes = FALSE) +
+#   # geom_line(data = pred_df2, aes(x = income, y = y), color = "blue", linetype = "dashed", inherit.aes = FALSE) +
+#   geom_line(data = pred_df3, aes(x = income, y = y), color = "purple", linewidth = 0.8, linetype = "dashed", inherit.aes = FALSE) +
+#   facet_wrap(~ region, ncol = 8) +
+#   scale_color_brewer(palette = "RdYlGn") +
+#   labs(x = "GDP per capita (thous 1990$ per capita)", y = "thousand 1975$ per labor", 
+#        title = "Agricultural Capital-Labor Ratio\n(Black dashed line denote historical global linear trend, purple dashed line denotes historical global loess trend)") +
+#   theme_bw()
 
 # plot GCAM regions ----
 
