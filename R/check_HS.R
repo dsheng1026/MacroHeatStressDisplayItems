@@ -2289,7 +2289,6 @@ AgElement_AreaYieldPrice %>%
   gather(account, value, Consumption:Revenue) ->
   AGG_AYPP_32
 
-
 PluckBind("SAM_NA") %>%  
   # select(scenario, region, Account, year, value) %>% 
   filter(Account == "gdp-per-capita-ppp") -> 
@@ -2425,6 +2424,35 @@ Key_AYPP_glb %>%
          index = ifelse(is.infinite(index), NA, index),
          delta = value - value[scenario == "Ref"]) ->
   Key_AYPP_change_glb
+
+AgElement_AreaYieldPrice %>% 
+  filter(element == "Production") %>% 
+  left_join(Regmapping %>% select(region, REG10_main), by = "region") %>% 
+  group_by(scenario, year, region = REG10_main, sector, element) %>%  
+  summarise(value = sum(value, na.rm = T)) %>% 
+  group_by(region, sector, year, element) %>% 
+  mutate(index = 100*(value / value[scenario == "Ref"] - 1),
+         index = ifelse(is.infinite(index), NA, index),
+         delta = value - value[scenario == "Ref"]) ->
+  Q_commodity_change_10_change
+
+Q_commodity_change_10_change %>% 
+  filter(!sector %in% c("foddergrass", "fodderherb", "grass")) %>%
+  filter(year == 2100) %>% 
+  filter(scenario == scenario_target) %>% 
+  SCE_NAME() %>% 
+  mutate(region = factor(region, levels = c(rev(reg_order)))) %>% 
+  ggplot() +
+  geom_vline(xintercept = 0, color = "blue", linetype = "dotted", linewidth = 0.8) +
+  geom_point(aes(y = region, x = delta)) +
+  facet_wrap(~ sector, scales = "free_x", ncol = 7) +
+  labs(x = "Mt", y = "", title = "Absolute change in regional production across commodities\nrelative to Reference") +
+  theme_bw() + themeds ->
+  FigSI.Q.commodities.10; FigSI.Q.commodities.10
+
+Write_png(FigSI.Q.commodities.10, "FigSI.Q.commodities.10", DIR_MODULE, w = 10, h = 8, r = 300)
+
+
 
 
 #### plot ----
@@ -2729,9 +2757,116 @@ Write_png(FigS4.sugarcrop.trade.Q.32map, "FigS4.sugarcrop.trade.Q.32map", DIR_MO
 # Write_png(Fig4.trade.level.10, "Fig4.trade.level.10", DIR_MODULE, w = 14, h = 6, r = 300)
 
 # Adding calories figures ----
+PluckBind("FoodConsumption") %>% 
+  group_by(scenario, region, year) %>% 
+  mutate(total = sum(value, na.rm = T),
+         source = "Other crops",
+         source = ifelse(technology %in% c("Corn", "Rice", "Wheat", "Soybean"),
+                         "Key crops", source),
+         source = ifelse(technology %in% c("Beef", "Dairy", "Pork", "Poultry", "SheepGoat"),
+                         "Livestock", source),
+         source = ifelse(technology == "OtherMeat_Fish",
+                         "Other meat", source)) %>% 
+  group_by(scenario, region, year) %>% 
+  mutate(share = 100 * value / total) ->
+  cal_share_commodity
 
-# Adding GCAM regional individual crop production ----
 
+PluckBind("FoodConsumption") %>% 
+  mutate(source = "Other crops",
+         source = ifelse(technology %in% c("Corn", "Rice", "Wheat", "Soybean"),
+                         "Key crops", source),
+         source = ifelse(technology %in% c("Beef", "Dairy", "Pork", "Poultry", "SheepGoat"),
+                         "Livestock", source),
+         source = ifelse(technology == "OtherMeat_Fish",
+                         "Other meat", source)) %>% 
+  group_by(scenario, region, year, source) %>% 
+  summarise(value = sum(value, na.rm = T)) %>% 
+  group_by(scenario, region, year) %>% 
+  mutate(total = sum(value, na.rm = T),
+         share = 100 * value / total) ->
+  cal_share_source
+
+PluckBind("FoodConsumption") %>% 
+  mutate(source = "Other crops",
+         source = ifelse(technology %in% c("Corn", "Rice", "Wheat", "Soybean"),
+                         "Key crops", source),
+         source = ifelse(technology %in% c("Beef", "Dairy", "Pork", "Poultry", "SheepGoat"),
+                         "Livestock", source),
+         source = ifelse(technology == "OtherMeat_Fish",
+                         "Other meat", source)) %>% 
+  group_by(scenario, year, source) %>% 
+  summarise(value = sum(value, na.rm = T)) %>% 
+  group_by(scenario, year) %>% 
+  mutate(total = sum(value, na.rm = T),
+         share = 100 * value / total) ->
+  cal_share_source_glb
+
+order_2025 <- cal_share_source %>% 
+  filter(year == 2025) %>% 
+  filter(source == "Key crops") %>% 
+  filter(scenario == "Ref") %>% 
+  short_name() %>% 
+  arrange(-share) %>%
+  pull(region)
+
+# cal_share_source %>% 
+#   # filter(year %in% c(2025, 2050, 2075, 2100)) %>% 
+#   filter(year %in% c(2025)) %>% 
+#   filter(source == "Key crops") %>% 
+#   filter(scenario == "Ref") %>% 
+#   short_name() %>% 
+#   mutate(region = factor(region, levels = order_2025)) %>% 
+#   ggplot() +
+#   geom_bar(aes(x = region, y = share, alpha = as.factor(year)), fill = "red", color = "black", 
+#            stat = "identity", position = "dodge") +
+#   labs(x = "", y = "% of calories consumption from Key crops",
+#        alpha = "Year") +
+#   theme_bw() + themeds +
+#   theme(axis.text.x = element_text(angle = 45, hjust = 1)) ->
+#   FigSI.calories.share.key.32; FigSI.calories.share.key.32
+# 
+#   Write_png(FigSI.calories.share.key.32, "FigSI.calories.share.key.32", DIR_MODULE, w = 14, h = 10, r = 300)
+
+
+  cal_share_source %>% 
+    # filter(year %in% c(2025, 2050, 2075, 2100)) %>% 
+    filter(year %in% c(2025)) %>% 
+    filter(scenario == "Ref") %>% 
+    short_name() %>% 
+    mutate(region = factor(region, levels = order_2025),
+           source = factor(source, levels = c("Other meat", "Livestock", "Other crops", "Key crops" ))) %>% 
+    ggplot() +
+    geom_bar(aes(x = region, y = share, fill = source), color = "black",alpha = 0.7, 
+             stat = "identity", position = "stack") +
+    # ylim(0, 100) +
+    labs(x = "", y = "% of calories source",
+         title = "Year: 2025") +
+    theme_bw() + themeds +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) ->
+    FigSI.calories.share.source.32; FigSI.calories.share.source.32
+  
+  Write_png(FigSI.calories.share.source.32, "FigSI.calories.share.source.32", DIR_MODULE, w = 14, h = 10, r = 300)
+  
+  
+  cal_share_source_glb %>% 
+    filter(year >= 2015) %>% 
+    # filter(year %in% c(2025, 2050, 2075, 2100)) %>% 
+    filter(scenario == "Ref") %>%
+    mutate(source = factor(source, levels = c("Other meat", "Livestock", "Other crops", "Key crops" ))) %>% 
+    SCE_NAME() %>% 
+    ggplot() +
+    geom_bar(aes(x = as.factor(year), y = share, fill = source), color = "black",alpha = 0.7, 
+             stat = "identity", position = "stack") +
+    # facet_wrap(~ scenario, nrow = 1) +
+    labs(x = "", y = "% of calories source",
+         alpha = "Year") +
+    theme_bw() + themeds ->
+    FigSI.calories.share.source.glb; FigSI.calories.share.source.glb
+
+  Write_png(FigSI.calories.share.source.glb, "FigSI.calories.share.source.glb", DIR_MODULE, w = 8, h = 8, r = 300)
+  
+  
 # !!!! STOP HERE ----
 
 ## Water ----
