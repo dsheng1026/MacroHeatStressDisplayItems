@@ -1146,80 +1146,117 @@ gdp.32.plot %>%
     mutate(delta = value - value[scenario == "Ref"],
            index = 100 * value / value[scenario == "Ref"] - 100) ->
     R2K.10
-  
-  
-  #### Return to land ----
-  
-  df.wage %>% select(scenario, region, year, sector, value) %>% mutate(variable = "wage") %>% 
-    bind_rows(df.labor %>% select(scenario, region, year, sector, value) %>% mutate(variable = "labor")) %>% 
-    spread(variable, value) %>% 
-    mutate(VAL = labor * wage) %>% 
-    select(scenario, region, year, sector, VAL) %>% 
-    spread(sector, VAL) %>% 
-    select(-Labor_Total) %>% 
-    rename(R2L_AG = Labor_Ag, R2L_MA = Labor_Materials) %>% # million 1990$
-    left_join(R2K, by = c("scenario", "region", "year")) %>% # million 1990$
-    left_join(df.GDP %>% select(scenario, region, year, GDP = value)) %>% 
-    mutate(R2A_AG = GDP - R2L_AG - R2L_MA- R2K_AG - R2K_MA -R2K_EN) %>% 
-    gather(factor, value, R2L_AG:R2A_AG) %>% 
-    group_by(region, year, factor) %>% 
-    mutate(delta = value - value[scenario == "Ref"],
-           index = 100 * value / value[scenario == "Ref"] - 100) ->
-    df.decomp.all
 
+  #### Return to land ----  
   
-  # PluckBind("Land") %>%  # thous km2
-  #   select(scenario, region, LandLeaf, year, value) %>% 
-  #   mutate(variable = "land") %>% 
-  #   bind_rows(PluckBind("ProfitRate") %>% # $1975/thous km2
-  #               select(scenario, region, LandLeaf, year, value) %>% 
-  #               mutate(variable = "pi")) %>% 
-  #   filter(year >= 2015) %>% 
-  #   spread(variable, value) %>% 
-  #   mutate(value = land * pi) ->
-  #   df.pi
   
-  # splits <- strsplit(df.pi$LandLeaf, '_')
-  # splits <- lapply(splits, 'length<-', max(lengths(splits)))
-  # splits <- do.call(rbind, splits)
-  # df.pi[c('crop', 'WB', 'IRR', 'mgmt')] <- splits
+  unique(df.pi$crop)
   
-  # unique(df.pi$crop)
-  # 
-  # df.pi %>% 
-  #   select(scenario, region, year, land, value, crop) %>% 
-  #   left_join(LandMapping %>% select(crop = LandLeaf, group = LandCover3), by = "crop") %>% 
-  #   mutate(group = ifelse(is.na(group), crop, group)) %>% 
-  #   filter(!grepl("Other Fixed", group)) %>% 
-  #   mutate(group = gsub(" - Unmanaged| - Managed", "", group)) %>%
-  #   mutate(group = gsub("Unmanaged|Managed", "", group)) %>% 
-  #   mutate(group = gsub("Fixed", "Land", group),
-  #          group = ifelse(grepl("wood", group), "Forest", group)) %>% 
-  #   group_by(scenario, region, group, year) %>% 
-  #   summarise(value = sum(value, na.rm = T),
-  #             land = sum(land, na.rm = T)) %>% 
-  #   mutate(value = conv_75_90*value/10^6) -> # million 1990$
-  #   df.landvalue
-  # 
-  # 
-  # df.landvalue %>% 
-  #   filter(group != "Other Land") %>% 
-  #   group_by(scenario, year, region) %>%  
-  #   summarise(value = sum(value, na.rm = T),
-  #             land = sum(land)) %>% 
-  #   group_by(year, region) %>% 
-  #   mutate(index = 100 * value / value[scenario == "Ref"] - 100,
-  #          delta = value - value[scenario == "Ref"] ) ->
-  #   R2A.32
+  df.pi %>% 
+    select(scenario, region, year, land, value, crop) %>% 
+    left_join(LandMapping %>% select(crop = LandLeaf, group = LandCover3), by = "crop") %>% 
+    mutate(group = ifelse(is.na(group), crop, group)) %>% 
+    filter(!grepl("Rock|Urban", group)) %>% 
+    mutate(group = gsub(" - Unmanaged| - Managed", "", group)) %>%
+    mutate(group = gsub("Unmanaged|Managed", "", group)) %>% 
+    mutate(group = gsub("Fixed", "Land", group),
+           group = ifelse(grepl("wood", group), "Forest", group)) %>%  
+    group_by(scenario, region, group, year) %>% 
+    summarise(value = sum(value, na.rm = T),
+              land = sum(land, na.rm = T)) %>% 
+    mutate(value = conv_75_90*value/10^6) -> # million 1990$
+    df.landvalue
   
-   # R2A.32 %>% filter(year == 2100, scenario == scenario_target) ->
-   #  delta.VAA.2100.r32
-   
-  df.decomp.all %>% 
-    filter(factor == "R2A_AG",
-           year == 2100, 
-           scenario == scenario_target) ->
+  
+  df.landvalue %>% 
+    filter(group != "Other Land") %>% 
+    group_by(scenario, year, region) %>%  
+    summarise(value = sum(value, na.rm = T),
+              land = sum(land)) %>% 
+    group_by(year, region) %>% 
+    mutate(index = 100 * value / value[scenario == "Ref"] - 100,
+           delta = value - value[scenario == "Ref"] ) ->
+    R2A.32
+  
+  R2A.32 %>% filter(year == 2100, scenario == scenario_target) ->
     delta.VAA.2100.r32
+  
+  REG %>% rename(region = reg_nm) %>%
+    left_join(delta.VAA.2100.r32, by = "region") %>% 
+    SCE_NAME() %>% 
+    ggplot() +
+    geom_sf(aes(fill = index)) +
+    scale_fill_gradient2(low = "red", high = "blue", midpoint = 0) +
+    coord_sf(datum = NA) + 
+    # labs(title = "Relative changes in total return to agricultural land (Ref = 0)") +
+    # facet_wrap(~ sector, ncol = 1) +
+    theme_bw() + theme0 + theme1 +
+    theme(legend.position="right",
+          plot.title = element_text(size = 16,
+                                    face = "bold"),
+          plot.subtitle = element_text(color = "blue"))  +
+    guides(fill = guide_colorbar(title = "%",
+                                 title.position = "top",
+                                 title.theme = element_text(size = 10,
+                                                            face = "bold",
+                                                            colour = "black",
+                                                            angle = 0))) ->
+    Fig3.R2A.32map; Fig3.R2A.32map
+  
+  Write_png(Fig3.R2A.32map, "Fig3.R2A.32map", DIR_MODULE, w = 6, h = 2, r = 300)
+  
+  
+  df.landvalue %>% 
+    filter(group != "Other Land") %>% 
+    left_join(Regmapping %>% select(region, REG10_main), by = "region") %>% 
+    group_by(scenario, year, group, region = REG10_main) %>%  
+    summarise(value = sum(value, na.rm = T),
+              land = sum(land)) %>% 
+    group_by(year, region, group) %>% 
+    mutate(index = 100 * value / value[scenario == "Ref"] - 100,
+           delta = value - value[scenario == "Ref"]) ->
+    R2A.10
+  
+  
+  R2A.10 %>% 
+    group_by(scenario, year, region) %>% 
+    summarise(value = sum(value, na.rm = T),
+              delta = sum(delta, na.rm = T),
+              land = sum(land, na.rm = T)) ->
+    R2A.agg.10
+  
+  R2A.10 %>% 
+    filter(grepl(scenario_target, scenario)) %>% 
+    mutate(region = factor(region, levels = reg_order)) %>% 
+    
+    ggplot() +
+    geom_hline(yintercept = 0, linetype = "dotted", linewidth = 0.8) +
+    geom_bar(aes(x = year, y = delta, fill = group),
+             stat = "identity", position = "stack") +
+    geom_errorbar(data = R2A.agg.10 %>% filter(grepl(scenario_target, scenario)) %>% 
+                    mutate(region = factor(region, levels = reg_order)), 
+                  aes(x = year, ymin = delta, ymax = delta), linetype = "dashed", linewidth = 1) +
+    facet_wrap(~ region, ncol = 5) +
+    # facet_wrap(~ region, ncol = 5, scales = "free_y") +
+    labs(x = "", y = "million 1900$", title = "Return to land relative to Ref (Ref = 0)") +
+    scale_fill_brewer(palette = "Set2") +
+    theme_bw() + themeds + 
+    theme(axis.text.x = element_text(angle = 30, hjust = 1)) ->
+    Fig3.S2.R2A.10; Fig3.S2.R2A.10
+  
+  Write_png(Fig3.S2.R2A.10, "Fig3.S2.R2A.10", DIR_MODULE, w = 12, h = 6, r = 300)
+  
+  
+  
+
+R2A.32 %>% filter(year == 2100, scenario == scenario_target) ->
+ delta.VAA.2100.r32
+   
+  # df.decomp.all %>% 
+  #   filter(factor == "R2A_AG",
+  #          year == 2100, 
+  #          scenario == scenario_target) ->
+  #   delta.VAA.2100.r32
     
   REG %>% rename(region = reg_nm) %>%
     left_join(delta.VAA.2100.r32, by = "region") %>% 
@@ -1246,71 +1283,38 @@ gdp.32.plot %>%
   Write_png(Fig3.R2A.32map, "Fig3.R2A.32map", DIR_MODULE, w = 6, h = 2, r = 300)
   
   
-  # df.landvalue %>% 
-  #   filter(group != "Other Land") %>% 
-  #   left_join(Regmapping %>% select(region, REG10_main), by = "region") %>% 
-  #   group_by(scenario, year, group, region = REG10_main) %>%  
-  #   summarise(value = sum(value, na.rm = T),
-  #             land = sum(land)) %>% 
-  #   group_by(year, region, group) %>% 
-  #   mutate(index = 100 * value / value[scenario == "Ref"] - 100,
-  #          delta = value - value[scenario == "Ref"]) ->
-  #   R2A.10
-  # 
-  # 
-  # R2A.10 %>% 
-  #   group_by(scenario, year, region) %>% 
-  #   summarise(value = sum(value, na.rm = T),
-  #             delta = sum(delta, na.rm = T),
-  #             land = sum(land, na.rm = T)) ->
-  #   R2A.agg.10
-  # 
-  # 
-  # R2A.10 %>% 
-  #   filter(grepl(scenario_target, scenario)) %>% 
-  #   mutate(region = factor(region, levels = reg_order)) %>% 
-  #   ggplot() +
-  #   geom_hline(yintercept = 0, linetype = "dotted", linewidth = 0.8) +
-  #   geom_bar(aes(x = year, y = delta, fill = group),
-  #            stat = "identity", position = "stack") +
-  #   geom_errorbar(data = R2A.agg.10 %>% filter(grepl(scenario_target, scenario)) %>% 
-  #                   mutate(region = factor(region, levels = reg_order)), 
-  #                 aes(x = year, ymin = delta, ymax = delta), linetype = "dashed", linewidth = 1) +
-  #   facet_wrap(~ region, ncol = 5) +
-  #   # facet_wrap(~ region, ncol = 5, scales = "free_y") +
-  #   labs(x = "", y = "million 1900$", title = "Return to land relative to Ref (Ref = 0)") +
-  #   scale_fill_brewer(palette = "Set2") +
-  #   theme_bw() + themeds + 
-  #   theme(axis.text.x = element_text(angle = 30, hjust = 1)) ->
-  #   Fig3.S2.R2A.10; Fig3.S2.R2A.10
-  # 
-  # Write_png(Fig3.S2.R2A.10, "Fig3.S2.R2A.10", DIR_MODULE, w = 12, h = 6, r = 300)
-  # 
+  
+
+
+  R2A.10 %>%
+    group_by(scenario, year, region) %>%
+    summarise(value = sum(value, na.rm = T),
+              delta = sum(delta, na.rm = T),
+              land = sum(land, na.rm = T)) ->
+    R2A.agg.10
+  
   #### decomposition ----
   
-  # plot.wage.10 %>% 
-  #   group_by(year, sector, region, variable) %>% 
-  #   mutate(delta = value - value[scenario == "Ref"],
-  #          index = 100 * value / value[scenario == "Ref"] - 100)  %>% 
-  #   filter(variable == "VAL") %>% ungroup() %>% 
-  #   filter(sector != "Labor_Total") %>% 
-  #   mutate(sector = gsub("Labor_Ag", "Ag", sector ),
-  #          sector = gsub("Labor_Materials", "NonAg", sector),
-  #          input = "labor") %>% 
-  #   select(-value, -variable) %>% 
-  #   bind_rows(R2A.10 %>% group_by(scenario, year, region) %>% 
-  #               summarise(value = sum(value, na.rm = T)) %>% 
-  #               mutate(sector = "Ag", input = "land") %>% 
-  #               group_by(year, sector, region) %>% 
-  #               mutate(delta = value - value[scenario == "Ref"],
-  #                      index = 100 * value / value[scenario == "Ref"] - 100) %>% 
-  #               select(-value)) %>% 
-  #   bind_rows(R2K.10 %>% filter(year >= 2015) %>% 
-  #               mutate(delta = value - value[scenario == "Ref"]) %>% 
-  #               mutate(sector = gsub("R2K_", "", sector), input = "capital") %>% select(-value)) %>% 
-  #   mutate(sector = gsub("AG", "Ag", sector),
-  #          delta = delta * CONV_90_15) -> # 1990$ to 2015$
-  #   GVA.10
+  
+  
+  df.wage %>% select(scenario, region, year, sector, value) %>% mutate(variable = "wage") %>% 
+    bind_rows(df.labor %>% select(scenario, region, year, sector, value) %>% mutate(variable = "labor")) %>% 
+    spread(variable, value) %>% 
+    mutate(VAL = labor * wage) %>% 
+    select(scenario, region, year, sector, VAL) %>% 
+    spread(sector, VAL) %>% 
+    select(-Labor_Total) %>% 
+    rename(R2L_AG = Labor_Ag, R2L_MA = Labor_Materials) %>% # million 1990$
+    left_join(R2K, by = c("scenario", "region", "year")) %>% # million 1990$
+    left_join(df.GDP %>% select(scenario, region, year, GDP = value), by = c("scenario", "region", "year")) %>% 
+    left_join(R2A.32 %>% select(scenario, region, year, R2A_AG = value), by = c("scenario", "region", "year")) %>% 
+    # update the R2K_MA by GDP - return to other factors
+    mutate(R2K_MA = GDP - R2L_AG - R2L_MA- R2A_AG - R2K_AG -R2K_EN) %>% 
+    gather(factor, value, R2L_AG:R2A_AG) %>% 
+    group_by(region, year, factor) %>% 
+    mutate(delta = value - value[scenario == "Ref"],
+           index = 100 * value / value[scenario == "Ref"] - 100) ->
+    df.decomp.all
   
   df.decomp.all %>% filter(factor != "GDP") %>% 
     separate(col = factor, into = c("input", "sector"), sep = "_") %>%  
@@ -2724,7 +2728,9 @@ Write_png(FigS4.sugarcrop.trade.Q.32map, "FigS4.sugarcrop.trade.Q.32map", DIR_MO
 # 
 # Write_png(Fig4.trade.level.10, "Fig4.trade.level.10", DIR_MODULE, w = 14, h = 6, r = 300)
 
+# Adding calories figures ----
 
+# Adding GCAM regional individual crop production ----
 
 # !!!! STOP HERE ----
 
