@@ -71,14 +71,21 @@ exp_colors <- c(
   "INV_NonAg" = "#F78DB2"   # Soft red
 )
 
+# land_colors <- c(
+#   "Cropland" = "#E1AD01",
+#   "Forest - Managed" = "#228B22",
+#   "Forest - Unmanaged" = "#6B8E23",
+#   "Other Arable" = "#F4A460",
+#   "Other Natural" = "#708090",
+#   "Pasture - Managed" = "#90EE90",
+#   "Pasture - Unmanaged" = "#F0E68C"
+# )
+
 land_colors <- c(
   "Cropland" = "#E1AD01",
-  "Forest - Managed" = "#228B22",
-  "Forest - Unmanaged" = "#6B8E23",
-  "Other Arable" = "#F4A460",
+  "Forest" = "#228B22",
   "Other Natural" = "#708090",
-  "Pasture - Managed" = "#90EE90",
-  "Pasture - Unmanaged" = "#F0E68C"
+  "Pasture" = "#90EE90"
 )
 
 
@@ -182,7 +189,7 @@ gather_time <- function(.data){
 
 basin_to_country_mapping <- read.csv("data/maps/basin_to_country_mapping.csv", skip = 7, header = T)
 
-gcam_macro_TFP_open_core <- read.csv("C:/Model/KLEAM/input/gcamdata/inst/extdata/socioeconomics/gcam_macro_TFP_open_core.csv", 
+gcam_macro_TFP_open_core <- read.csv("C:/Model/KLEAM/input/gcamdata/inst/extdata/socioeconomics/gcam_macro_TFP_open_core.csv",
                                      skip = 6, header = T)
 
 

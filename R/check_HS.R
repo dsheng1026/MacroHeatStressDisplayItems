@@ -601,8 +601,8 @@ min1 <- floor(min(gdp.32.plot$index)); min1
 
 custom_breaks <- sort(unique(c(seq(min1, max1, by = 1), -0.1, 0.1))); custom_breaks
 
-original_levels <- levels(cut(df.bio$index, breaks = custom_breaks, include.lowest = TRUE, right = FALSE))
-original_levels
+# original_levels <- levels(cut(df.bio$index, breaks = custom_breaks, include.lowest = TRUE, right = FALSE))
+# original_levels
 updated_levels <- c("[-4,-3)", "[-3,-2)", "[-2,-1)", "[-1,0)", 
                     "0", "(0,1]", "(1,2]",  "(2,3]" )
 
@@ -1480,7 +1480,7 @@ R2A.32 %>% filter(year == 2100, scenario == scenario_target) ->
   ### Land   ----
   
   PluckBind("Aggland") %>% filter(year >= 2015) %>% 
-    left_join_error_no_match(LandMapping %>% select(LandLeaf, land = LandCover6), by = "LandLeaf") %>% 
+    left_join_error_no_match(LandMapping %>% select(LandLeaf, land = LandCover7), by = "LandLeaf") %>% 
     group_by(scenario, region, land, year, branch) %>%
     # to Mha
     summarise(value = sum(value)/10, .groups = "drop") %>%
@@ -1712,7 +1712,7 @@ R2A.32 %>% filter(year == 2100, scenario == scenario_target) ->
     mutate(K_L = AgK / AgL) %>% # bil 1975$ / mil people = thousand 1975$ per labor
     group_by(scenario, region) %>% 
     mutate(trend = K_L / K_L[year == 2015]) %>% 
-    filter(scenario %in% c("Ref", "CLA_LS")) %>%
+    filter(scenario %in% c("Ref", scenario_target)) %>%
     SCE_NAME() %>% 
     mutate(region = factor(region, levels = reg_order)) %>%
     ggplot() +
@@ -1850,7 +1850,7 @@ R2A.32 %>% filter(year == 2100, scenario == scenario_target) ->
     filter(scenario == scenario_target) %>% 
     SCE_NAME() %>% 
     mutate(sector = ifelse(sector == "AG", "Ag", "Non-Ag"),
-           delta = CONV_90_15*delta/10^3) %>% View()
+           delta = CONV_90_15*delta/10^3) %>% head()
   
   
   plot.INV %>% 
@@ -1876,7 +1876,7 @@ R2A.32 %>% filter(year == 2100, scenario == scenario_target) ->
                   aes(x = year, ymin = CONV_90_15*delta / 10^3, ymax = CONV_90_15*delta / 10^3)) + 
     facet_wrap(~ region, ncol = 5, scales = "free_y") +
     labs(x = "", y = "billion 2015$") +
-    # labs(title = "Absolute changes in investment relative (Ref = 0)") +
+    labs(title = "Absolute changes in investment relative (Ref = 0)") +
     scale_fill_brewer(palette = "Set2") +
     theme_bw() + themeds ->
     Fig4.INV.10; Fig4.INV.10
@@ -2045,7 +2045,7 @@ R2A.32 %>% filter(year == 2100, scenario == scenario_target) ->
     geom_errorbar(data = delta.trade %>% filter(input == "AE") %>% 
                     mutate(region = factor(region, levels = reg_order)), aes(x = year, ymin = delta, ymax = delta), linewidth = 1) +
     facet_grid(region ~ scenario, scales = "free_y") +
-    labs(x = "", y = "Net export relative to Ref (Ref = 0 million 1990$)") +
+    labs(x = "", y = "Net export value relative to Ref (Ref = 0, million 1990$)") +
     theme_bw() + themeds +
     theme(axis.text.x = element_text(angle = 30, hjust = 1))
   
@@ -2246,7 +2246,8 @@ R2A.32 %>% filter(year == 2100, scenario == scenario_target) ->
   
 source("R/AgBalElement_Storage.R")
 
-AgElement_SUA %>% filter(element == "Production") %>% 
+
+  AgElement_SUA %>% filter(element == "Production") %>% 
   select(scenario, region, sector, year, element, value) %>% 
   bind_rows(AgElement_SUA %>% 
               filter(element %in% c("Bioenergy", "Feed", "Food", "Other use")) %>% 
@@ -2484,7 +2485,6 @@ Key_AYPP_change_10 %>%
 Fig4.AGPQR.10; Fig4.AGPQR.10
 
 Write_png(Fig4.AGPQR.10, "Fig4.AGPQR.10", DIR_MODULE, w = 10, h = 6, r = 300)
-
 
 
 # TRADE plots ----
@@ -2830,8 +2830,8 @@ order_2025 <- cal_share_source %>%
 
 
   cal_share_source %>% 
-    # filter(year %in% c(2025, 2050, 2075, 2100)) %>% 
-    filter(year %in% c(2025)) %>% 
+    # filter(year %in% c(2025, 2050, 2075, 2100)) %>%
+    filter(year %in% c(2025)) %>%
     filter(scenario == "Ref") %>% 
     short_name() %>% 
     mutate(region = factor(region, levels = order_2025),
@@ -2839,6 +2839,7 @@ order_2025 <- cal_share_source %>%
     ggplot() +
     geom_bar(aes(x = region, y = share, fill = source), color = "black",alpha = 0.7, 
              stat = "identity", position = "stack") +
+    # facet_wrap(~year, ncol = 1) +
     # ylim(0, 100) +
     labs(x = "", y = "% of calories source",
          title = "Year: 2025") +
