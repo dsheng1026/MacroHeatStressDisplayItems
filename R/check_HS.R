@@ -603,15 +603,16 @@ custom_breaks <- sort(unique(c(seq(min1, max1, by = 1), -0.1, 0.1))); custom_bre
 
 # original_levels <- levels(cut(df.bio$index, breaks = custom_breaks, include.lowest = TRUE, right = FALSE))
 # original_levels
-updated_levels <- c("[-4,-3)", "[-3,-2)", "[-2,-1)", "[-1,0)", 
+updated_levels <- c("[-5,-4)", "[-4,-3)", "[-3,-2)", "[-2,-1)", "[-1,0)", 
                     "0", "(0,1]", "(1,2]",  "(2,3]" )
 
 # get the number of positive and negative bins
-neg_num <- 4
+neg_num <- 5
 pos_num <- 3
 
-gdp.32.plot %>%
+gdp.32.plot %>% 
   mutate(bin = "0",
+         bin = ifelse(index >= -5 & index < -4, "[-5,-4)", bin),
          bin = ifelse(index >= -4 & index < -3, "[-4,-3)", bin),
          bin = ifelse(index >= -3 & index < -2, "[-3,-2)", bin),
          bin = ifelse(index >= -2 & index < -1, "[-2,-1)", bin),
@@ -627,7 +628,7 @@ bin_levels <- levels(gdp.32.plot$bin); bin_levels
 colors <- c(
   colorRampPalette(c("darkred", "#FFE4E1"))(max(pos_num, neg_num)) ,
   "white", # for 0
-  colorRampPalette(c("#E6F0FA", "darkblue"))(max(pos_num, neg_num))
+  colorRampPalette(c("#E6F0FA", "blue"))(max(pos_num, neg_num))
 )
 
 colors <- colors[1:length(bin_levels)]; colors
@@ -644,7 +645,7 @@ gdp.32.plot %>%
   theme(legend.position="right") ->
   Fig2.1.32map; Fig2.1.32map
 
-  Write_png(Fig2.1.32map, "Fig2.1.32map", DIR_MODULE, w = 8, h = 2.5, r = 300)
+  Write_png(Fig2.1.32map, "Fig2.1.32map", DIR_MODULE, w = 8, h = 3, r = 300)
   
   
 ### 10 regions channels: 2100 ----
@@ -1088,8 +1089,25 @@ gdp.32.plot %>%
     filter(variable == "VAL") ->
     R2L.10 
 
+  # global changes in return to labor 
+  R2L.10 %>% 
+    filter(scenario == "CL_LS") %>% 
+    filter(year == 2100, sector == "Labor_Ag") %>% 
+    group_by(scenario, year, sector) %>% 
+    summarise(delta = sum(delta)) %>% 
+    mutate(delta = delta * CONV_90_15 / 10^3) # million 1990$ to billion 2015$
   
 
+  # global changes in return to non-ag labor 
+  R2L.10 %>% 
+    filter(scenario == "CL_LS") %>% 
+    filter(year == 2100, sector == "Labor_Materials") %>% 
+    group_by(scenario, year, sector) %>% 
+    summarise(delta = sum(delta)) %>% 
+    mutate(delta = delta * CONV_90_15 / 10^3) # million 1990$ to billion 2015$
+  
+  
+  
   #### Return to capital ----
   
   
@@ -1146,6 +1164,24 @@ gdp.32.plot %>%
     mutate(delta = value - value[scenario == "Ref"],
            index = 100 * value / value[scenario == "Ref"] - 100) ->
     R2K.10
+  
+  # global changes in return to Ag capital 
+  R2K.10 %>% 
+    filter(scenario == "CL_LS") %>% 
+    filter(year == 2100, sector == "R2K_AG") %>% 
+    group_by(scenario, year, sector) %>% 
+    summarise(delta = sum(delta)) %>% 
+    mutate(delta = delta * CONV_90_15 / 10^3) # million 1990$ to billion 2015$
+  
+  
+  # global changes in return to Non-Ag capital 
+  R2K.10 %>% 
+    filter(scenario == "CL_LS") %>% 
+    filter(year == 2100, sector == "R2K_NonAg") %>% 
+    group_by(scenario, year, sector) %>% 
+    summarise(delta = sum(delta)) %>% 
+    mutate(delta = delta * CONV_90_15 / 10^3) # million 1990$ to billion 2015$
+  
 
   #### Return to land ----  
   
@@ -1224,6 +1260,14 @@ gdp.32.plot %>%
               delta = sum(delta, na.rm = T),
               land = sum(land, na.rm = T)) ->
     R2A.agg.10
+  
+  # global changes in return to Ag land 
+  R2A.agg.10 %>% 
+    filter(scenario == "CL_LS") %>% 
+    filter(year == 2100) %>% 
+    group_by(scenario, year) %>% 
+    summarise(delta = sum(delta)) %>% 
+    mutate(delta = delta * CONV_90_15 / 10^3) # million 1990$ to billion 2015$
   
   R2A.10 %>% 
     filter(grepl(scenario_target, scenario)) %>% 
@@ -1850,7 +1894,7 @@ R2A.32 %>% filter(year == 2100, scenario == scenario_target) ->
     filter(scenario == scenario_target) %>% 
     SCE_NAME() %>% 
     mutate(sector = ifelse(sector == "AG", "Ag", "Non-Ag"),
-           delta = CONV_90_15*delta/10^3) %>% head()
+           delta = CONV_90_15*delta/10^3) %>% View()
   
   
   plot.INV %>% 
@@ -2550,7 +2594,9 @@ df.trade %>%
   filter(!commodity %in% c("Afr_MidE pipeline gas", "EUR pipeline gas", "LA pipeline gas", "LNG","coal", 
                           "N.Amer pipeline gas",   "PAC pipeline gas" , "RUS pipeline gas", "ammonia",
                           "woodpulp" , "oil")) %>%
-  mutate(group = "Other crops",
+  mutate(group = commodity,
+         group = ifelse(commodity %in% c("fibercrop", "fruits", "legumes", "misccrop", "nuts_seeds",
+                          "oilcrop", "oilpalm", "othergrain", "root_tuber", "sugarcrop", "vegetables"), "Other Crops", group), 
          # group = ifelse(commodity %in% c("sugarcrop"), "Sugarcrop", group),
          group = ifelse(commodity %in% c("corn","wheat","rice","soybean"), "Key crops", group),
          group = ifelse(commodity %in% c("beef","dairy","poultry","sheepgoat", "pork"), "Livestock", group),
